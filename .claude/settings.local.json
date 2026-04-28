@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import ortools; print\\(ortools.__version__\\)\")",
+      "Bash(python3 -c \"from ortools.sat.python import cp_model; print\\('CP-SAT available'\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c \"import sys,json; [print\\(json.loads\\(l\\).get\\('content',''\\)[:200]\\) for l in sys.stdin if 'text' in json.loads\\(l\\)]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)",
+      "WebSearch",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
