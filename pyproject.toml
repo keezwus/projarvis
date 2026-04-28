@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "projarvis"
+version = "2.0.0"
+description = "Project Jarvis v2.0 — Personal schedule CP-SAT optimization engine"
+requires-python = ">=3.10"
+dependencies = [
+    "ortools>=9.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
