@@ -17,12 +17,12 @@
     ]
   },
   "tasks": [
-    {"id": "standup",       "duration": 1, "tags": ["meeting"]},
-    {"id": "deep_work_1",   "duration": 8, "tags": ["focus"]},
-    {"id": "deep_work_2",   "duration": 8, "tags": ["focus"]},
-    {"id": "lunch",         "duration": 4, "tags": ["personal"]},
-    {"id": "code_review",   "duration": 4, "tags": ["collab"]},
-    {"id": "planning",      "duration": 4, "tags": ["meeting"]}
+    {"id": "standup",       "duration": 1, "metadata": {}},
+    {"id": "deep_work_1",   "duration": 8, "metadata": {}},
+    {"id": "deep_work_2",   "duration": 8, "metadata": {}},
+    {"id": "lunch",         "duration": 4, "metadata": {}},
+    {"id": "code_review",   "duration": 4, "metadata": {}},
+    {"id": "planning",      "duration": 4, "metadata": {}}
   ],
   "constraints": [],
   "solver": {

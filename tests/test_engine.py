@@ -216,8 +216,8 @@ class TestObjective:
     def test_earliest_bias(self):
         tm = make_time_mapper(horizon_days=1)
         tasks = make_tasks(
-            {"id": "t1", "duration": 4, "tags": []},
-            {"id": "t2", "duration": 4, "tags": []},
+            {"id": "t1", "duration": 4, "metadata": {}},
+            {"id": "t2", "duration": 4, "metadata": {}},
         )
         sol = run_engine(tm, tasks)
         # Both tasks should be packed as early as possible

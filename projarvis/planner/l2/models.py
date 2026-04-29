@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 class TaskSpec:
     id: str
     duration: int  # 15-minute slots, >= 1
-    tags: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
 
 

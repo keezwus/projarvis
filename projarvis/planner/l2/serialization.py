@@ -50,7 +50,6 @@ def _parse_tasks(arr: list[dict]) -> list[TaskSpec]:
             TaskSpec(
                 id=tid,
                 duration=item["duration"],
-                tags=item.get("tags", []),
                 metadata=item.get("metadata", {}),
             )
         )

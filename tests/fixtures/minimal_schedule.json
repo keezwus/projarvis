@@ -14,10 +14,10 @@
     "overrides": []
   },
   "tasks": [
-    {"id": "standup",    "duration": 1, "tags": ["meeting"]},
-    {"id": "deep_work",  "duration": 8, "tags": ["focus"]},
-    {"id": "lunch",      "duration": 4, "tags": ["personal"]},
-    {"id": "code_review","duration": 4, "tags": ["collab"], "metadata": {"github_pr": "https://github.com/foo/bar/pull/42"}}
+    {"id": "standup",    "duration": 1, "metadata": {}},
+    {"id": "deep_work",  "duration": 8, "metadata": {}},
+    {"id": "lunch",      "duration": 4, "metadata": {}},
+    {"id": "code_review","duration": 4, "metadata": {}, "metadata": {"github_pr": "https://github.com/foo/bar/pull/42"}}
   ],
   "constraints": [],
   "solver": {
