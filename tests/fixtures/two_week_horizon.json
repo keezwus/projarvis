@@ -1,0 +1,29 @@
+{
+  "horizon_spec": {
+    "horizon_start": "2026-05-04T00:00:00",
+    "horizon_weeks": 2,
+    "weekly_available": {
+      "monday":    [["09:00", "12:00"]],
+      "tuesday":   [["09:00", "12:00"]],
+      "wednesday": [["09:00", "12:00"]],
+      "thursday":  [["09:00", "12:00"]],
+      "friday":    [["09:00", "12:00"]],
+      "saturday":  [],
+      "sunday":    []
+    },
+    "overrides": [
+      {"date": "2026-05-05T00:00:00", "action": "remove", "blocks": [["09:00", "12:00"]]}
+    ]
+  },
+  "tasks": [
+    {"id": "review_ch3",     "l1": {"total_duration": 8,  "priority": 1}, "l2": {"metadata": {}}},
+    {"id": "practice_exam",  "l1": {"total_duration": 12, "priority": 1}, "l2": {"metadata": {}}},
+    {"id": "write_essay",    "l1": {"total_duration": 8,  "priority": 2}, "l2": {"metadata": {}}},
+    {"id": "admin_stuff",    "l1": {"total_duration": 4,  "priority": 3}, "l2": {"metadata": {}}}
+  ],
+  "constraints": [],
+  "solver": {
+    "max_time_seconds": 10.0,
+    "random_seed": 42
+  }
+}
