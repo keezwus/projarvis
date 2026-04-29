@@ -2,27 +2,34 @@
 
 ## 一、代码结构与功能
 
-### TimeMapper
-时间压缩映射层，将真实可用时间块压缩为连续整数域供 CP-SAT 使用。
+### TimeEpoch
+全局时间基础设施（`projarvis/planner/time_epoch.py`），以 `horizon_start` 为纪元锚点，在 real slot 这条线性轴上做所有转换。
 
-- `TimeSpec` → `TimeMapper(time_spec)` → `[0, N-1]` 压缩域
-- 提供双向映射、`resolve_time_ref`（ISO 8601 → 压缩槽位）、`TimeContext` 只读查询
+- 常量：`MINUTES_PER_SLOT=15`, `SLOTS_PER_DAY=96`, `SLOTS_PER_WEEK=672`, `DAY_NAMES`
+- 纯函数：`hhmm_to_minutes()`, `minutes_to_hhmm()`, `hhmm_to_slot()`, `slot_to_hhmm()`
+- 工具：`is_iso_datetime()` — 稳健的 ISO 8601 字符串识别
+- `TimeEpoch(horizon_start)` — real slot ↔ datetime 核心转换、槽位算术、周边界
+
+### TimeMapper
+时间压缩映射层，接收共享 `TimeEpoch`，将真实可用时间块压缩为连续整数域供 CP-SAT 使用。
+
+- `TimeSpec` + `TimeEpoch` → `TimeMapper(time_spec, epoch)` → `[0, N-1]` 压缩域
+- 提供双向映射、`resolve_time_ref`（ISO 8601 → 压缩槽位）、时间查询方法（`day_of_week`, `day_name`, `time_of_day`, `hour`, `minute`, `is_morning`, `is_afternoon`, `is_evening`）
 
 ### SchedulingEngine
 核心引擎，负责变量创建、约束分发、求解、结果提取。
 
 - `engine.hydrate(tasks)` — 创建 CP-SAT 变量 + 块边界约束 + 全局 NoOverlap
 - `engine.apply_constraints(constraints)` — 盲扫 ISO 8601 → 插件分发
-- `engine.solve()` — 求解 → 压缩解 → `TimeMapper.compressed_to_real()` → `Solution` (ISO 8601 输出)
+- `engine.solve()` — 求解 → 压缩解 → `TimeMapper.compressed_to_real()` → `Solution`（纯整数 slot 输出）
 
 ### Registry
-`@register_constraint("type_name")` 装饰器注册插件，`discover_plugins()` 自动扫描 `projarvis.planner.plugins` 目录。
+`@register_constraint("type_name")` 装饰器注册插件，`discover_plugins()` 自动扫描 `projarvis.planner.l2.plugins` 目录。
 
 ### Models
 所有数据契约：`TaskSpec`, `TimeSpec`, `ConstraintSpec`, `SolverParams`, `Solution`, `TaskResult`。
 
-### Constants
-`MINUTES_PER_SLOT=15`, `SLOTS_PER_DAY=96`, `hhmm_to_minutes()`, `minutes_to_hhmm()`, `hhmm_to_slot()`, `slot_to_hhmm()`。
+`TaskResult` 只保留 slot 字段（`start_slot`, `end_slot`, `duration_slots`），ISO 时间由序列化层或调用方按需生成。
 
 ### Solver
 `SolverParams` dataclass → `CpSolver` 封装，不暴露 OR-Tools 类型。
@@ -30,10 +37,10 @@
 ### 数据流
 
 ```
-TimeSpec → TimeMapper(time_spec) → [0, N-1] 压缩域
+TimeSpec + TimeEpoch → TimeMapper(ts, epoch) → [0, N-1] 压缩域
 TaskSpec[] → Engine.hydrate() → CP-SAT 变量 + 块边界约束 + NoOverlap
 ConstraintSpec[] → Engine.apply_constraints() → 盲扫 ISO 8601 → 插件分发
-Engine.solve() → 压缩解 → TimeMapper.compressed_to_real() → Solution (ISO 8601 输出)
+Engine.solve() → 压缩解 → TimeMapper.compressed_to_real() → Solution (real slot 整数)
 ```
 
 ## 二、插件契约与参数
@@ -45,9 +52,15 @@ def plugin_fn(
     model: cp_model.CpModel,
     variables: dict,
     args: dict,                        # 时间字段已转为压缩槽位，非时间字段保留原始类型
-    time_ctx: TimeContext | None = None,
+    time_mapper: TimeMapper | None = None,
 ) -> None:
 ```
+
+插件通过 `time_mapper` 查询压缩槽位的时间属性，例如：
+- `time_mapper.day_of_week(comp_slot)` → 0=Monday
+- `time_mapper.hour(comp_slot)` → 小时数
+- `time_mapper.is_morning(comp_slot)` → 是否上午
+- `time_mapper.compressed_to_real(comp_slot)` → 真实槽位
 
 ### 四条铁则
 
@@ -89,7 +102,7 @@ variables = {
 ### 追加优化项
 
 ```python
-def my_plugin(model, variables, args, time_ctx):
+def my_plugin(model, variables, args, time_mapper):
     # ...
     engine.add_objective_term(weight * sum_of_preferences)
 ```
@@ -107,7 +120,7 @@ def my_plugin(model, variables, args, time_ctx):
 | `weekly_base` | dict | 每周基准可用块，key=星期全名（monday~sunday），value=`[["HH:MM","HH:MM"],...]` |
 | `overrides` | list | 临时变更，每项 `{"date": "ISO 8601 datetime", "action": "add"\|"remove", "blocks": [["HH:MM","HH:MM"],...]}` |
 
-注：`slot_minutes` 在 `constants.py`（`MINUTES_PER_SLOT = 15`）中统一管理，不在 JSON 接口中出现。`weekly_base` 块不允许重叠或乱序（开始 >= 结束），TimeMapper 构建时报 `ValidationError`。
+注：`slot_minutes` 在 `time_epoch.py`（`MINUTES_PER_SLOT = 15`）中统一管理，不在 JSON 接口中出现。`weekly_base` 块不允许重叠或乱序（开始 >= 结束），TimeMapper 构建时报 `ValidationError`。
 
 ### TaskSpec
 
