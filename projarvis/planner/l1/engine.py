@@ -36,6 +36,7 @@ class L1Engine:
         self._epoch = TimeEpoch(spec.horizon_start)
         self._windows: list[HorizonWindow] = []
         self._assignments: dict[int, list[L1TaskSpec]] = {}
+        self._capacity_report: CapacityReport | None = None
         self._allocated = False
 
     # ── public API ──────────────────────────────────────────────
@@ -74,8 +75,9 @@ class L1Engine:
 
         if not tasks:
             self._assignments = {}
+            self._capacity_report = CapacityReport(status="OK")
             self._allocated = True
-            return {}, CapacityReport(status="OK")
+            return {}, self._capacity_report
 
         model = cp_model.CpModel()
 
@@ -113,8 +115,9 @@ class L1Engine:
 
         if status == cp_model.INFEASIBLE:
             self._assignments = {}
+            self._capacity_report = CapacityReport(status="OVERSATURATED")
             self._allocated = True
-            return {}, CapacityReport(status="OVERSATURATED")
+            return {}, self._capacity_report
 
         assignments: dict[int, list[L1TaskSpec]] = {}
         for w in range(len(self._windows)):
@@ -126,8 +129,9 @@ class L1Engine:
                     assignments[w].append(t)
 
         self._assignments = assignments
+        self._capacity_report = CapacityReport(status="OK")
         self._allocated = True
-        return assignments, CapacityReport(status="OK")
+        return assignments, self._capacity_report
 
     def schedule(
         self,
@@ -215,6 +219,7 @@ class L1Engine:
         return MultiWeekSolution(
             status=overall,
             weekly_solutions=weekly_solutions,
+            capacity_report=self._capacity_report,
             conflict_reports=conflict_reports,
         )
 

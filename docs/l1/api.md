@@ -5,13 +5,13 @@
 ```python
 from projarvis.planner.l1.engine import L1Engine
 from projarvis.planner.l1.models import LongHorizonSpec, L1TaskSpec
-from projarvis.planner.l2.models import ConstraintSpec  # 复用 L2 定义
+from projarvis.planner.l1.models import ConstraintSpec
 from projarvis.planner.models import SolverParams
 
-engine = L1Engine(spec)                                   # 1. 初始化
-windows = engine.partition()                              # 2. 切周
-assignments, cap_report = engine.allocate(tasks, constraints)  # 3. 布尔分配
-solution = engine.schedule(params)                             # 4. 逐周委托 L2
+engine = L1Engine(spec)                                         # 1. 初始化
+windows = engine.partition()                                    # 2. 切周
+assignments, cap_report = engine.allocate(tasks, constraints)   # 3. 布尔分配
+solution = engine.schedule(params, constraints)                  # 4. 逐周委托 L2
 ```
 
 三阶段各自独立，不自动级联。schedule 必须在 allocate 之后调用。
@@ -36,7 +36,7 @@ solution = engine.schedule(params)                             # 4. 逐周委托
 - 构建临时 TimeMapper 获取 `available_slots`
 - 幂等：重复调用返回缓存
 
-### `allocate(tasks: list[L1TaskSpec], constraints: list[ConstraintSpec]) -> tuple[dict[int, list[L1TaskSpec]], CapacityReport]`
+### `allocate(tasks: list[L1TaskSpec], constraints: list[ConstraintSpec] | None = None) -> tuple[dict[int, list[L1TaskSpec]], CapacityReport]`
 
 - 调用 partition()（如未调）
 - 构建 L1 CP-SAT 布尔分配模型：
@@ -47,7 +47,7 @@ solution = engine.schedule(params)                             # 4. 逐周委托
 - INFEASIBLE → 空 dict + OVERSATURATED（不抛异常）
 - 返回 `(assignments, report)`
 
-### `schedule(params: SolverParams | None = None) -> MultiWeekSolution`
+### `schedule(params: SolverParams | None = None, constraints: list[ConstraintSpec] | None = None) -> MultiWeekSolution`
 
 - 遍历窗口，有任务的周委托 L2
 - L2 TaskSpec: `id = t.id`, `duration = t.total_duration`, `metadata = t.l2_metadata`（ID 原样传递）

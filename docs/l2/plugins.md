@@ -23,7 +23,7 @@ def no_meetings_tuesday(model, variables, params, time_mapper):
     ...
 ```
 
-Engine 启动时 `discover_plugins()` 自动扫描 `projarvis.planner.l2.plugins` 包，`importlib.import_module` 每个模块触发装饰器执行。插件文件放在 `l2/plugins/` 目录下即可自动注册，无需手动 import。
+Engine 在 `apply_constraints()` 时调用 `discover_plugins()`，自动扫描 `projarvis.planner.l2.plugins` 包，`importlib.import_module` 每个模块触发装饰器执行。插件文件放在 `l2/plugins/` 目录下即可自动注册，无需手动 import。
 
 ## `variables` 结构
 
@@ -92,13 +92,6 @@ for tid, tv in variables["tasks"].items():
 
 ## 目标追加
 
-```python
-def my_plugin(model, variables, params, time_mapper):
-    target = variables["tasks"].get(params["task_id"])
-    if target is None:
-        return
-    # 插件自身持有的 engine 引用
-    engine.add_objective_term(weight * target["end"])
-```
+插件无法直接持有 engine 引用（签名不传 engine）。需要追加优化项时，将 term 写入 `variables["plugins"][type_name]`，引擎侧在 `set_objective()` 中汇总。
 
-`add_objective_term` 在 `hydrate()` 之后、`set_objective()` 之前有效。最终目标 = `Minimize(sum(starts) + sum(_objective_terms))`。
+最终目标 = `Minimize(sum(starts) + sum(_objective_terms))`。
