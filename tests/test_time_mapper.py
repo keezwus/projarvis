@@ -9,8 +9,8 @@ from projarvis.planner.constants import (
     SLOTS_PER_DAY,
     SLOTS_PER_WEEK,
 )
-from projarvis.planner.models import TimeSpec
-from projarvis.planner.time_mapper import TimeMapper, TimeContext
+from projarvis.planner.l2.models import TimeSpec
+from projarvis.planner.l2.time_mapper import TimeMapper, TimeContext
 from projarvis.planner.exceptions import ValidationError, TimeMappingError
 
 

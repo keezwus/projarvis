@@ -4,11 +4,12 @@ from datetime import datetime
 
 from ortools.sat.python import cp_model
 
-from projarvis.planner.time_mapper import TimeMapper
-from projarvis.planner.models import TaskSpec, ConstraintSpec, SolverParams, TaskResult, Solution
+from .time_mapper import TimeMapper
+from .models import TaskSpec, ConstraintSpec, TaskResult, Solution
+from projarvis.planner.models import SolverParams
 from projarvis.planner.exceptions import ValidationError, ConstraintError, TimeMappingError
-from projarvis.planner.registry import get_plugin, discover_plugins
-from projarvis.planner.solver import create_solver
+from .registry import get_plugin, discover_plugins
+from .solver import create_solver
 
 
 class SchedulingEngine:

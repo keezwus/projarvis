@@ -6,7 +6,7 @@ from projarvis.planner.constants import (
     hhmm_to_minutes,
 )
 from projarvis.planner.exceptions import ValidationError, TimeMappingError
-from projarvis.planner.models import TimeSpec
+from .models import TimeSpec
 
 
 class TimeContext:

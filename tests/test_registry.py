@@ -1,5 +1,5 @@
 import pytest
-from projarvis.planner.registry import register_constraint, get_plugin, discover_plugins, _registry
+from projarvis.planner.l2.registry import register_constraint, get_plugin, discover_plugins, _registry
 
 
 class TestRegistry:

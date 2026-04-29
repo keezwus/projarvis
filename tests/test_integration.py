@@ -1,8 +1,8 @@
 import json
 import pytest
-from projarvis.planner.time_mapper import TimeMapper
+from projarvis.planner.l2.time_mapper import TimeMapper
 from projarvis.planner.l2.engine import SchedulingEngine
-from projarvis.planner.serialization import parse_schedule, dumps
+from projarvis.planner.l2.serialization import parse_schedule, dumps
 from projarvis.planner.models import SolverParams
 from tests.conftest import load_fixture
 
@@ -93,7 +93,7 @@ class TestFullWeekSchedule:
 class TestInfeasibleSchedule:
     def test_too_many_tasks(self):
         """Schedule more tasks than available slots."""
-        from projarvis.planner.models import TaskSpec, TimeSpec
+        from projarvis.planner.l2.models import TaskSpec, TimeSpec
 
         ts = TimeSpec(
             horizon_start="2026-05-04T00:00:00",
@@ -115,7 +115,7 @@ class TestInfeasibleSchedule:
 
 class TestOverrideSchedule:
     def test_override_add_creates_new_block(self):
-        from projarvis.planner.models import TaskSpec, TimeSpec
+        from projarvis.planner.l2.models import TaskSpec, TimeSpec
 
         ts = TimeSpec(
             horizon_start="2026-05-04T00:00:00",

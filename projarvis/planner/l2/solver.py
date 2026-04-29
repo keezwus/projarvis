@@ -1,5 +1,5 @@
 from ortools.sat.python import cp_model
-from projarvis.planner.models import SolverParams
+from projarvis.planner.models import SolverParams  # shared base model
 
 
 def create_solver(params: SolverParams | None = None) -> cp_model.CpSolver:

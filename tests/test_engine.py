@@ -1,6 +1,7 @@
 import pytest
-from projarvis.planner.models import TaskSpec, ConstraintSpec, SolverParams, TimeSpec
-from projarvis.planner.time_mapper import TimeMapper
+from projarvis.planner.l2.models import TaskSpec, ConstraintSpec, TimeSpec
+from projarvis.planner.models import SolverParams
+from projarvis.planner.l2.time_mapper import TimeMapper
 from projarvis.planner.l2.engine import SchedulingEngine
 from projarvis.planner.exceptions import ValidationError, ConstraintError
 

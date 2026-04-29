@@ -3,14 +3,14 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-from projarvis.planner.models import (
+from .models import (
     TaskSpec,
     ConstraintSpec,
     TimeSpec,
-    SolverParams,
     TaskResult,
     Solution,
 )
+from projarvis.planner.models import SolverParams
 from projarvis.planner.exceptions import ValidationError
 from projarvis.planner.constants import MINUTES_PER_SLOT
 
