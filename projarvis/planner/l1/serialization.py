@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
+
+from projarvis.planner.time_epoch import TimeEpoch, MINUTES_PER_SLOT
 
 from .models import (
     LongHorizonSpec,
@@ -25,8 +28,8 @@ def parse_long_horizon(
     return spec, tasks, constraints, solver
 
 
-def serialize_solution(solution: MultiWeekSolution) -> str:
-    return json.dumps(_solution_to_dict(solution), ensure_ascii=False, indent=2)
+def serialize_solution(solution: MultiWeekSolution, epoch: TimeEpoch) -> str:
+    return json.dumps(_solution_to_dict(solution, epoch), ensure_ascii=False, indent=2)
 
 
 # ── internal parse ──────────────────────────────────────────────
@@ -83,11 +86,11 @@ def _parse_solver(d: dict | None) -> SolverParams | None:
 # ── internal serialize ──────────────────────────────────────────
 
 
-def _solution_to_dict(sol: MultiWeekSolution) -> dict:
+def _solution_to_dict(sol: MultiWeekSolution, epoch: TimeEpoch) -> dict:
     return {
         "status": sol.status,
         "weekly_solutions": [
-            _week_solution_to_dict(ws) for ws in sol.weekly_solutions
+            _week_solution_to_dict(ws, epoch) for ws in sol.weekly_solutions
         ],
         "unassigned_tasks": [
             {"id": t.id, "total_duration": t.total_duration}
@@ -105,7 +108,7 @@ def _solution_to_dict(sol: MultiWeekSolution) -> dict:
     }
 
 
-def _week_solution_to_dict(ws: WeekSolution) -> dict:
+def _week_solution_to_dict(ws: WeekSolution, epoch: TimeEpoch) -> dict:
     base: dict = {
         "week_index": ws.week_index,
         "start_iso": ws.start_iso,
@@ -113,18 +116,20 @@ def _week_solution_to_dict(ws: WeekSolution) -> dict:
     if ws.solution is None:
         base["solution"] = None
     else:
+        tasks: dict[str, dict] = {}
+        for tid, tr in ws.solution.tasks.items():
+            start_dt = epoch.real_slot_to_datetime(tr.start_slot)
+            end_dt = start_dt + timedelta(minutes=tr.duration_slots * MINUTES_PER_SLOT)
+            tasks[tid] = {
+                "start": start_dt.isoformat(),
+                "end": end_dt.isoformat(),
+                "duration_minutes": tr.duration_slots * MINUTES_PER_SLOT,
+            }
         base["solution"] = {
             "status": ws.solution.status,
             "solve_time_ms": ws.solution.solve_time_ms,
             "objective_value": ws.solution.objective_value,
-            "tasks": {
-                tid: {
-                    "start_slot": tr.start_slot,
-                    "end_slot": tr.end_slot,
-                    "duration_slots": tr.duration_slots,
-                }
-                for tid, tr in ws.solution.tasks.items()
-            },
+            "tasks": tasks,
             "conflicts": ws.solution.conflicts,
         }
     return base

@@ -97,6 +97,7 @@ class TestParseLongHorizon:
 
 class TestSerializeSolution:
     def test_basic(self):
+        from projarvis.planner.time_epoch import TimeEpoch
         sol = MultiWeekSolution(
             status="OK",
             weekly_solutions=[
@@ -104,13 +105,15 @@ class TestSerializeSolution:
             ],
             capacity_report=CapacityReport(status="OK"),
         )
-        result = json.loads(serialize_solution(sol))
+        epoch = TimeEpoch("2026-05-04T00:00:00")
+        result = json.loads(serialize_solution(sol, epoch))
         assert result["status"] == "OK"
         assert len(result["weekly_solutions"]) == 1
         assert result["capacity_report"]["status"] == "OK"
 
     def test_with_conflicts(self):
         from projarvis.planner.l1.models import ConflictReport
+        from projarvis.planner.time_epoch import TimeEpoch
         sol = MultiWeekSolution(
             status="PARTIAL",
             weekly_solutions=[
@@ -121,7 +124,8 @@ class TestSerializeSolution:
                 ConflictReport(week_index=1, conflicts=["no feasible slot"], suggestion="try week 2"),
             ],
         )
-        result = json.loads(serialize_solution(sol))
+        epoch = TimeEpoch("2026-05-04T00:00:00")
+        result = json.loads(serialize_solution(sol, epoch))
         assert result["status"] == "PARTIAL"
         assert len(result["conflict_reports"]) == 1
         assert result["conflict_reports"][0]["week_index"] == 1

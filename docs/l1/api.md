@@ -179,9 +179,9 @@ solution = engine.schedule(params, constraints)                  # 4. 逐周委�
         "solve_time_ms": 12.3,
         "objective_value": 45.0,
         "tasks": {
-          "review_ch3":    { "start_slot": 0,   "end_slot": 28,  "duration_slots": 28 },
-          "practice_exam": { "start_slot": 28,  "end_slot": 44,  "duration_slots": 16 },
-          "admin_stuff":   { "start_slot": 44,  "end_slot": 48,  "duration_slots": 4  }
+          "review_ch3":    { "start": "2026-05-04T09:00:00", "end": "2026-05-04T16:00:00", "duration_minutes": 420 },
+          "practice_exam": { "start": "2026-05-04T16:00:00", "end": "2026-05-04T20:00:00", "duration_minutes": 240 },
+          "admin_stuff":   { "start": "2026-05-04T20:00:00", "end": "2026-05-04T21:00:00", "duration_minutes": 60  }
         },
         "conflicts": []
       }

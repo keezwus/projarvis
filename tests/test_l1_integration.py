@@ -95,7 +95,9 @@ class TestL1EndToEnd:
         engine.allocate(tasks)
         result = engine.schedule(solver_params)
 
-        json_str = serialize_solution(result)
+        from projarvis.planner.time_epoch import TimeEpoch
+        epoch = TimeEpoch(spec.horizon_start)
+        json_str = serialize_solution(result, epoch)
         parsed = json.loads(json_str)
 
         assert parsed["status"] in ("OK", "PARTIAL", "INFEASIBLE")
