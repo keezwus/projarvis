@@ -1,41 +1,78 @@
-from datetime import datetime, timedelta
-from projarvis.planner.constants import (
+from projarvis.planner.time_epoch import (
     MINUTES_PER_SLOT,
     SLOTS_PER_DAY,
-    DAY_NAMES,
     hhmm_to_minutes,
+    TimeEpoch,
 )
 from projarvis.planner.exceptions import ValidationError, TimeMappingError
 from .models import TimeSpec
 
 
-class TimeContext:
-    """Read-only temporal context for plugins to query slot properties."""
+class TimeMapper:
+    """Compresses available time blocks into a contiguous integer domain [0, N-1].
 
-    def __init__(self, mapper: "TimeMapper"):
-        self._mapper = mapper
+    Receives a shared TimeEpoch for all real-slot ↔ datetime conversions.
+    """
+
+    def __init__(self, time_spec: TimeSpec, epoch: TimeEpoch):
+        self._epoch = epoch
+        self._start_slot = epoch.iso_to_real_slot(time_spec.horizon_start)
+        self._horizon_days = time_spec.horizon_days
+        self._comp_to_offset: list[int] = []
+        self._offset_to_comp: dict[int, int] = {}
+        self._block_boundaries: list[int] = []
+        self._total_slots = 0
+
+        self._build(time_spec.weekly_base, time_spec.overrides)
+
+    # ── public API ──────────────────────────────────────────────
+
+    def resolve_time_ref(self, iso_string: str) -> int:
+        real_slot = self._epoch.iso_to_real_slot(iso_string)
+        offset = real_slot - self._start_slot
+        comp = self._offset_to_comp.get(offset)
+        if comp is None:
+            raise TimeMappingError(
+                f"Time {iso_string!r} (real slot {real_slot}) is not in available time"
+            )
+        return comp
+
+    def real_to_compressed(self, real_slot: int) -> int | None:
+        return self._offset_to_comp.get(real_slot - self._start_slot)
+
+    def compressed_to_real(self, comp_slot: int) -> int:
+        return self._start_slot + self._comp_to_offset[comp_slot]
+
+    def compressed_range_to_real(self, c_start: int, c_end: int) -> tuple[int, int]:
+        return (
+            self.compressed_to_real(c_start),
+            self.compressed_to_real(c_end),
+        )
+
+    def real_slot_to_iso(self, real_slot: int) -> str:
+        return self._epoch.real_slot_to_iso(real_slot)
+
+    # ── absorbed TimeContext methods ────────────────────────────
 
     def day_of_week(self, comp_slot: int) -> int:
-        """0=Monday, 6=Sunday."""
-        dt = self._mapper._slot_datetime(self._mapper.compressed_to_real(comp_slot))
-        return dt.weekday()
+        real = self.compressed_to_real(comp_slot)
+        return self._epoch.day_of_week(real)
 
     def day_name(self, comp_slot: int) -> str:
-        return DAY_NAMES[self.day_of_week(comp_slot)]
+        real = self.compressed_to_real(comp_slot)
+        return self._epoch.day_name(real)
 
     def time_of_day(self, comp_slot: int) -> str:
-        dt = self._mapper._slot_datetime(self._mapper.compressed_to_real(comp_slot))
-        return f"{dt.hour:02d}:{dt.minute:02d}"
+        real = self.compressed_to_real(comp_slot)
+        return self._epoch.time_of_day(real)
 
     def hour(self, comp_slot: int) -> int:
-        return self._mapper._slot_datetime(
-            self._mapper.compressed_to_real(comp_slot)
-        ).hour
+        real = self.compressed_to_real(comp_slot)
+        return self._epoch.hour(real)
 
     def minute(self, comp_slot: int) -> int:
-        return self._mapper._slot_datetime(
-            self._mapper.compressed_to_real(comp_slot)
-        ).minute
+        real = self.compressed_to_real(comp_slot)
+        return self._epoch.minute(real)
 
     def is_morning(self, comp_slot: int) -> bool:
         return self.hour(comp_slot) < 12
@@ -46,76 +83,17 @@ class TimeContext:
     def is_evening(self, comp_slot: int) -> bool:
         return self.hour(comp_slot) >= 18
 
-    def real_slot(self, comp_slot: int) -> int:
-        return self._mapper.compressed_to_real(comp_slot)
-
-
-class TimeMapper:
-    """Compresses available time blocks into a contiguous integer domain [0, N-1]."""
-
-    def __init__(self, time_spec: TimeSpec):
-        self._horizon_start = datetime.fromisoformat(time_spec.horizon_start)
-        self._horizon_days = time_spec.horizon_days
-        self._comp_to_real: list[int] = []
-        self._real_to_comp: dict[int, int] = {}
-        self._block_boundaries: list[int] = []
-        self._total_slots = 0
-        self._context = TimeContext(self)
-
-        self._build(time_spec.weekly_base, time_spec.overrides)
-
-    # ── public API ──────────────────────────────────────────────
-
-    def resolve_time_ref(self, iso_string: str) -> int:
-        dt = datetime.fromisoformat(iso_string)
-        delta_minutes = (dt - self._horizon_start).total_seconds() / 60.0
-        if delta_minutes < 0:
-            raise TimeMappingError(
-                f"Time {iso_string!r} is before horizon_start "
-                f"{self._horizon_start.isoformat()}"
-            )
-        if delta_minutes % MINUTES_PER_SLOT != 0:
-            raise TimeMappingError(
-                f"Time {iso_string!r} is not aligned to {MINUTES_PER_SLOT}-minute slots"
-            )
-        real_slot = int(delta_minutes / MINUTES_PER_SLOT)
-        comp_slot = self._real_to_comp.get(real_slot)
-        if comp_slot is None:
-            raise TimeMappingError(
-                f"Time {iso_string!r} (real slot {real_slot}) is not in available time"
-            )
-        return comp_slot
-
-    def real_to_compressed(self, real_slot: int) -> int | None:
-        return self._real_to_comp.get(real_slot)
-
-    def compressed_to_real(self, comp_slot: int) -> int:
-        return self._comp_to_real[comp_slot]
-
-    def compressed_range_to_real(self, c_start: int, c_end: int) -> tuple[int, int]:
-        return (
-            self.compressed_to_real(c_start),
-            self.compressed_to_real(c_end),
-        )
+    # ── properties ──────────────────────────────────────────────
 
     @property
     def total_slots(self) -> int:
         return self._total_slots
 
     @property
-    def context(self) -> TimeContext:
-        return self._context
-
-    @property
     def block_boundaries(self) -> list[int]:
         return list(self._block_boundaries)
 
     # ── internal helpers ────────────────────────────────────────
-
-    def _slot_datetime(self, real_slot: int) -> datetime:
-        return self._horizon_start + timedelta(
-            minutes=real_slot * MINUTES_PER_SLOT
-        )
 
     def _build(
         self,
@@ -124,14 +102,12 @@ class TimeMapper:
     ) -> None:
         self._validate_weekly_base(weekly_base)
 
-        all_blocks: list[tuple[int, int]] = []  # (real_start, real_end) per day
+        all_blocks: list[tuple[int, int]] = []  # (offset_start, offset_end) per day
 
         for day_offset in range(self._horizon_days):
-            day_date = self._horizon_start.date() + timedelta(days=day_offset)
-            weekday = day_date.weekday()  # 0=Mon
-            day_name = DAY_NAMES[weekday]
+            day_start_slot = self._start_slot + day_offset * SLOTS_PER_DAY
+            day_name = self._epoch.day_name(day_start_slot)
 
-            # Start with base blocks for this day-of-week
             day_blocks: list[tuple[int, int]] = []
             for block in weekly_base.get(day_name, []):
                 start_min = hhmm_to_minutes(block[0])
@@ -140,7 +116,10 @@ class TimeMapper:
 
             # Apply overrides for this specific date
             for ov in overrides:
-                ov_date = datetime.fromisoformat(ov["date"]).date()
+                ov_date = self._epoch.real_slot_to_datetime(
+                    self._epoch.iso_to_real_slot(ov["date"])
+                ).date()
+                day_date = self._epoch.real_slot_to_datetime(day_start_slot).date()
                 if ov_date != day_date:
                     continue
 
@@ -153,19 +132,18 @@ class TimeMapper:
                     elif action == "add":
                         day_blocks = self._add_block(day_blocks, ov_start, ov_end)
 
-            # Convert to real slots for this day
-            day_base_slot = day_offset * SLOTS_PER_DAY
+            # Convert to offset slots
             for start_min, end_min in day_blocks:
-                real_start = day_base_slot + start_min // MINUTES_PER_SLOT
-                real_end = day_base_slot + end_min // MINUTES_PER_SLOT
-                all_blocks.append((real_start, real_end))
+                offset_start = day_offset * SLOTS_PER_DAY + start_min // MINUTES_PER_SLOT
+                offset_end = day_offset * SLOTS_PER_DAY + end_min // MINUTES_PER_SLOT
+                all_blocks.append((offset_start, offset_end))
 
         # Build compressed mapping from all blocks
         comp_idx = 0
-        for i, (real_start, real_end) in enumerate(all_blocks):
-            for real_slot in range(real_start, real_end):
-                self._comp_to_real.append(real_slot)
-                self._real_to_comp[real_slot] = comp_idx
+        for i, (offset_start, offset_end) in enumerate(all_blocks):
+            for offset in range(offset_start, offset_end):
+                self._comp_to_offset.append(offset)
+                self._offset_to_comp[offset] = comp_idx
                 comp_idx += 1
             if i < len(all_blocks) - 1:
                 self._block_boundaries.append(comp_idx)
@@ -188,7 +166,6 @@ class TimeMapper:
                         f"Block {block!r} in weekly_base[{day!r}] has start >= end"
                     )
                 intervals.append((start, end))
-            # Check for overlap
             intervals.sort()
             for i in range(len(intervals) - 1):
                 if intervals[i][1] > intervals[i + 1][0]:

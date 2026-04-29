@@ -9,7 +9,7 @@ class TestRegistry:
 
     def test_register_and_get(self):
         @register_constraint("test_op")
-        def dummy(model, variables, args, time_ctx=None):
+        def dummy(model, variables, args, time_mapper=None):
             pass
 
         assert get_plugin("test_op") is dummy
@@ -19,11 +19,11 @@ class TestRegistry:
 
     def test_multiple_registrations(self):
         @register_constraint("op_a")
-        def op_a(model, variables, args, time_ctx=None):
+        def op_a(model, variables, args, time_mapper=None):
             pass
 
         @register_constraint("op_b")
-        def op_b(model, variables, args, time_ctx=None):
+        def op_b(model, variables, args, time_mapper=None):
             pass
 
         assert get_plugin("op_a") is op_a
@@ -51,6 +51,6 @@ class TestPluginSignature:
         model = cp_model.CpModel()
         variables = {"tasks": {}, "plugins": {}}
         args = {"some_param": 42}
-        discovered(model, variables, args, time_ctx=None)
+        discovered(model, variables, args, time_mapper=None)
 
-        plugin_mock.assert_called_once_with(model, variables, args, time_ctx=None)
+        plugin_mock.assert_called_once_with(model, variables, args, time_mapper=None)

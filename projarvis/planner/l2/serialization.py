@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
 
 from .models import (
     TaskSpec,
@@ -12,7 +11,6 @@ from .models import (
 )
 from projarvis.planner.models import SolverParams
 from projarvis.planner.exceptions import ValidationError
-from projarvis.planner.constants import MINUTES_PER_SLOT
 
 
 def parse_schedule(
@@ -83,8 +81,6 @@ def _solution_to_dict(sol: Solution) -> dict:
             tid: {
                 "start_slot": tr.start_slot,
                 "end_slot": tr.end_slot,
-                "start_time": tr.start_time,
-                "end_time": tr.end_time,
                 "duration_slots": tr.duration_slots,
             }
             for tid, tr in sol.tasks.items()

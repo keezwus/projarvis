@@ -3,6 +3,7 @@ from projarvis.planner.l2.models import TaskSpec, ConstraintSpec, TimeSpec
 from projarvis.planner.models import SolverParams
 from projarvis.planner.l2.time_mapper import TimeMapper
 from projarvis.planner.l2.engine import SchedulingEngine
+from projarvis.planner.time_epoch import TimeEpoch
 from projarvis.planner.exceptions import ValidationError, ConstraintError
 
 
@@ -22,7 +23,9 @@ def make_time_mapper(**overrides) -> TimeMapper:
         "overrides": [],
     }
     defaults.update(overrides)
-    return TimeMapper(TimeSpec(**defaults))
+    ts = TimeSpec(**defaults)
+    epoch = TimeEpoch(ts.horizon_start)
+    return TimeMapper(ts, epoch)
 
 
 def make_tasks(*specs) -> list[TaskSpec]:
@@ -78,14 +81,6 @@ class TestEngineBasic:
         for t in sol.tasks.values():
             assert t.start_slot >= 36
             assert t.end_slot <= 48
-
-    def test_solution_iso8601_output(self):
-        tm = make_time_mapper(horizon_days=1)
-        tasks = make_tasks({"id": "standup", "duration": 1})
-        sol = run_engine(tm, tasks)
-        assert sol.tasks["standup"].start_time == "2026-05-04T09:00:00"
-        assert sol.tasks["standup"].end_time == "2026-05-04T09:15:00"
-
 
 class TestEngineValidation:
     def test_empty_tasks_rejected(self):

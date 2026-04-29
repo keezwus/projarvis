@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from ortools.sat.python import cp_model
 
 from .time_mapper import TimeMapper
 from .models import TaskSpec, ConstraintSpec, TaskResult, Solution
 from projarvis.planner.models import SolverParams
 from projarvis.planner.exceptions import ValidationError, ConstraintError, TimeMappingError
+from projarvis.planner.time_epoch import is_iso_datetime
 from .registry import get_plugin, discover_plugins
 from .solver import create_solver
 
@@ -112,7 +111,7 @@ class SchedulingEngine:
                 self.model,
                 self.variables,
                 converted_params,
-                self.time_mapper.context,
+                self.time_mapper,
             )
 
         self._constraints_applied = True
@@ -173,14 +172,10 @@ class SchedulingEngine:
             c_end = solver.Value(tv["end"])
             r_start = self.time_mapper.compressed_to_real(c_start)
             r_end = self.time_mapper.compressed_to_real(c_end)
-            start_dt = self.time_mapper._slot_datetime(r_start)
-            end_dt = self.time_mapper._slot_datetime(r_end)
             task_results[tid] = TaskResult(
                 id=tid,
                 start_slot=r_start,
                 end_slot=r_end,
-                start_time=start_dt.isoformat(),
-                end_time=end_dt.isoformat(),
                 duration_slots=tv["duration"],
             )
 
@@ -200,11 +195,10 @@ def _blind_scan_params(params: dict, time_mapper: TimeMapper) -> dict:
 
 
 def _blind_scan_value(value, time_mapper: TimeMapper):
-    if isinstance(value, str) and "T" in value:
+    if is_iso_datetime(value):
         try:
-            datetime.fromisoformat(value)
             return time_mapper.resolve_time_ref(value)
-        except (ValueError, TimeMappingError):
+        except TimeMappingError:
             pass
     if isinstance(value, dict):
         return {k: _blind_scan_value(v, time_mapper) for k, v in value.items()}

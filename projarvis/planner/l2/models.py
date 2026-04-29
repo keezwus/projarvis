@@ -29,8 +29,6 @@ class TaskResult:
     id: str
     start_slot: int
     end_slot: int
-    start_time: str
-    end_time: str
     duration_slots: int
 
 

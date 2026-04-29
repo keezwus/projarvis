@@ -4,6 +4,7 @@ from projarvis.planner.l2.time_mapper import TimeMapper
 from projarvis.planner.l2.engine import SchedulingEngine
 from projarvis.planner.l2.serialization import parse_schedule, dumps
 from projarvis.planner.models import SolverParams
+from projarvis.planner.time_epoch import TimeEpoch
 from tests.conftest import load_fixture
 
 
@@ -12,7 +13,8 @@ class TestMinimalSchedule:
         data = load_fixture("minimal_schedule.json")
         time_spec, tasks, constraints, solver_params = parse_schedule(data)
 
-        tm = TimeMapper(time_spec)
+        epoch = TimeEpoch(time_spec.horizon_start)
+        tm = TimeMapper(time_spec, epoch)
         engine = SchedulingEngine(tm)
         engine.hydrate(tasks)
         engine.apply_constraints(constraints)
@@ -47,7 +49,8 @@ class TestMinimalSchedule:
         data = load_fixture("minimal_schedule.json")
         time_spec, tasks, constraints, solver_params = parse_schedule(data)
 
-        tm = TimeMapper(time_spec)
+        epoch = TimeEpoch(time_spec.horizon_start)
+        tm = TimeMapper(time_spec, epoch)
         engine = SchedulingEngine(tm)
         engine.hydrate(tasks)
         engine.apply_constraints(constraints)
@@ -68,7 +71,8 @@ class TestFullWeekSchedule:
         data = load_fixture("full_week.json")
         time_spec, tasks, constraints, solver_params = parse_schedule(data)
 
-        tm = TimeMapper(time_spec)
+        epoch = TimeEpoch(time_spec.horizon_start)
+        tm = TimeMapper(time_spec, epoch)
         # Tue afternoon removed → Tue only has morning (12 slots)
         # Thu evening added 17:00-20:00 merges with 14:00-18:00 → 14:00-20:00 (24 slots)
         # Mon: 28, Tue: 12, Wed: 28, Thu: 36 (12+24), Fri: 24
@@ -103,7 +107,8 @@ class TestInfeasibleSchedule:
         )
         tasks = [TaskSpec(id=f"t{i}", duration=4) for i in range(3)]  # 3 tasks × 4 slots = 12 needed
 
-        tm = TimeMapper(ts)
+        epoch = TimeEpoch(ts.horizon_start)
+        tm = TimeMapper(ts, epoch)
         engine = SchedulingEngine(tm)
         engine.hydrate(tasks)
         engine.set_objective()
@@ -125,7 +130,8 @@ class TestOverrideSchedule:
                 {"date": "2026-05-04T00:00:00", "action": "add", "blocks": [["18:00", "20:00"]]}
             ],
         )
-        tm = TimeMapper(ts)
+        epoch = TimeEpoch(ts.horizon_start)
+        tm = TimeMapper(ts, epoch)
         # 09:00-12:00 = 12 slots + 18:00-20:00 = 8 slots = 20 total
         assert tm.total_slots == 20
 
