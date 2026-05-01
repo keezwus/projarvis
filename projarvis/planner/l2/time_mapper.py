@@ -37,6 +37,18 @@ class TimeMapper:
             )
         return comp
 
+    def resolve_or_nearest(self, iso_string: str) -> int:
+        """Convert ISO 8601 to compressed slot, scanning backward if outside availability."""
+        real_slot = self._epoch.iso_to_real_slot(iso_string)
+        offset = real_slot - self._start_slot
+        for prev in range(offset, -1, -1):
+            comp = self._offset_to_comp.get(prev)
+            if comp is not None:
+                return comp
+        raise TimeMappingError(
+            f"Time {iso_string!r} is before all available slots"
+        )
+
     def real_to_compressed(self, real_slot: int) -> int | None:
         return self._offset_to_comp.get(real_slot - self._start_slot)
 
