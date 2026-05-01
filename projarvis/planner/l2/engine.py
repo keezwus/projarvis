@@ -126,6 +126,10 @@ class SchedulingEngine:
         objective = sum(task_starts)
         for term in self._objective_terms:
             objective += term
+        for plugin_terms in self.variables.get("plugins", {}).values():
+            if isinstance(plugin_terms, list):
+                for term in plugin_terms:
+                    objective += term
         self.model.Minimize(objective)
         self._objective_set = True
 
