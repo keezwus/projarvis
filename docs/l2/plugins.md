@@ -39,7 +39,10 @@ variables = {
         }
     },
     "plugins": {
-        "my_plugin": { ... }      # 插件私有命名空间，只写这里
+        "my_plugin": [...]       # list（直接作为目标项）或
+        "my_plugin": {           # dict（推荐，为 diagnostics 留空间）
+            "objective_terms": [...],
+        }
     }
 }
 ```
@@ -92,6 +95,21 @@ for tid, tv in variables["tasks"].items():
 
 ## 目标追加
 
-插件无法直接持有 engine 引用（签名不传 engine）。需要追加优化项时，将 term 写入 `variables["plugins"][type_name]`，引擎侧在 `set_objective()` 中汇总。
+插件无法直接持有 engine 引用（签名不传 engine）。需要追加优化项时，写入 `variables["plugins"][type_name]`，引擎侧在 `set_objective()` 中汇总。
+
+支持两种格式：
+- **list**：直接作为目标项列表，每个元素加到 objective
+- **dict**：`{"objective_terms": [...]}`，引擎取 `objective_terms` 键。dict 格式为将来 diagnostics 等扩展留空间
 
 最终目标 = `Minimize(sum(starts) + sum(_objective_terms))`。
+
+## metadata 与 constraint params 的分工
+
+| 位置 | 放什么 | 示例 |
+|---|---|---|
+| `TaskSpec.metadata` | 单任务内在属性 | `deadline`, `focus_multiplier`, `exercise_multiplier` |
+| `ConstraintSpec.params` | 关系、限制、开关 | `pairs`, `default_gap`, `budget_per_day`, `exempt_task_ids` |
+
+**规则**：插件数据一律从上述两处读取，不新增其他数据入口。空 constraint（`{"type": "xxx", "params": {}}`）是合法的启用开关——metadata 里有对应字段时插件就生效。
+
+引擎和插件不消费 `TaskSpec.metadata` 中非本插件声明的字段，保留给上层自由使用。

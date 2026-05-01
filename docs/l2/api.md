@@ -53,7 +53,9 @@ solution = engine.solve(params)                # 4. 求解
 
 目标函数：`Minimize(sum(task_starts) + sum(plugin_objective_terms))`
 
-插件可通过 `engine.add_objective_term(expr)` 追加优化项。
+插件可通过两条路径追加优化项：
+1. `engine.add_objective_term(expr)` — 直接追加
+2. 写入 `variables["plugins"][TYPE]` — 支持 `list`（直接作为目标项）或 `{"objective_terms": [...]}` dict，引擎在 `set_objective()` 中汇总
 
 ### `solve(params: SolverParams | None) -> Solution`
 
