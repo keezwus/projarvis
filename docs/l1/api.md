@@ -43,7 +43,9 @@ solution = engine.schedule(params, constraints)                  # 4. 逐周委�
   - 变量 `y[t][w]` ∈ {0, 1}
   - 约束 `sum_w y[t][w] == 1`
   - 约束 `sum_t y[t][w] * total_duration[t] <= capacity[w]`
-  - 目标 `minimize sum y[t][w] * w * priority[t]`
+  - 构建每周 TimeMapper，调用 `discover_distributors()`，遍历 constraints 调度 L1 分发器插件
+  - 插件可添加硬约束（`model.Add`）和目标项（`task_terms` 替换默认 base，`objective_terms` 追加）
+  - 未被 `task_terms` 覆盖的 task 走默认目标：`minimize sum y[t][w] * w * priority[t]`
 - INFEASIBLE → 空 dict + OVERSATURATED（不抛异常）
 - 返回 `(assignments, report)`
 
