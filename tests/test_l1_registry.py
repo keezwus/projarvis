@@ -8,7 +8,7 @@ from projarvis.planner.l1.registry import (
 class TestRegisterDistributor:
     def test_register_and_lookup(self):
         @register_distributor("test_strategy")
-        def my_fn(model, variables, params, windows, epoch):
+        def my_fn(model, variables, params, windows, time_mappers, epoch):
             pass
 
         fn = get_distributor("test_strategy")

@@ -82,15 +82,16 @@ class L1Engine:
         model = cp_model.CpModel()
 
         # ── variables: y[t][w] ∈ {0, 1} ─────────────────────────
+        n_weeks = len(self._windows)
         y: dict[str, list[cp_model.IntVar]] = {}
         for t in tasks:
             y[t.id] = []
-            for w in range(len(self._windows)):
+            for w in range(n_weeks):
                 y[t.id].append(model.NewBoolVar(f"y_{t.id}_w{w}"))
 
         # ── one-hot: each task exactly one week ──────────────────
         for t in tasks:
-            model.Add(sum(y[t.id][w] for w in range(len(self._windows))) == 1)
+            model.Add(sum(y[t.id][w] for w in range(n_weeks)) == 1)
 
         # ── capacity ─────────────────────────────────────────────
         for w, window in enumerate(self._windows):
@@ -99,19 +100,66 @@ class L1Engine:
                 <= window.available_slots
             )
 
-        # ── objective: earliest-bias by priority ─────────────────
+        # ── build time_mappers & variables ───────────────────────
+        time_mappers = []
+        for w in range(n_weeks):
+            week_overrides = self._filter_overrides_for_week(w)
+            ts = TimeSpec(
+                horizon_start=self._windows[w].start_iso,
+                horizon_days=7,
+                weekly_base=self._spec.weekly_available,
+                overrides=week_overrides,
+            )
+            time_mappers.append(TimeMapper(ts, self._epoch))
+
+        task_lookup = {t.id: t for t in tasks}
+        variables: dict = {
+            "tasks": {
+                tid: {
+                    "vars": y[tid],
+                    "duration": t.total_duration,
+                    "spec": t,
+                }
+                for tid, t in task_lookup.items()
+            },
+            "plugins": {},
+        }
+
+        # ── plugin dispatch ──────────────────────────────────────
+        from .registry import discover_distributors, get_distributor
+        discover_distributors()
+        for cs in (constraints or []):
+            plugin = get_distributor(cs.type)
+            if plugin is not None:
+                plugin(
+                    model, variables, cs.params,
+                    self._windows, time_mappers, self._epoch,
+                )
+
+        # ── objective ────────────────────────────────────────────
         terms: list[cp_model.LinearExpr] = []
+        covered_ids: set[str] = set()
+        for pdata in variables["plugins"].values():
+            if isinstance(pdata, dict):
+                tt = pdata.get("task_terms", {})
+                for tid, tterms in tt.items():
+                    terms.extend(tterms)
+                    covered_ids.add(tid)
         for t in tasks:
-            for w in range(len(self._windows)):
-                terms.append(y[t.id][w] * w * t.priority)
+            if t.id not in covered_ids:
+                for w in range(n_weeks):
+                    terms.append(y[t.id][w] * w * t.priority)
+        for pdata in variables["plugins"].values():
+            if isinstance(pdata, list):
+                terms.extend(pdata)
+            elif isinstance(pdata, dict):
+                terms.extend(pdata.get("objective_terms", []))
         model.Minimize(sum(terms))
 
         # ── solve ────────────────────────────────────────────────
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = 5.0
         status = solver.Solve(model)
-
-        del constraints  # reserved for plugin integration
 
         if status == cp_model.INFEASIBLE:
             self._assignments = {}
