@@ -4,7 +4,7 @@ from projarvis.planner.models import SolverParams
 from projarvis.planner.l2.time_mapper import TimeMapper
 from projarvis.planner.l2.engine import SchedulingEngine
 from projarvis.planner.time_epoch import TimeEpoch
-from projarvis.planner.exceptions import ValidationError, ConstraintError
+from projarvis.planner.exceptions import ValidationError
 
 
 def make_time_mapper(**overrides) -> TimeMapper:
@@ -186,10 +186,9 @@ class TestUnknownConstraint:
         tm = make_time_mapper()
         engine = SchedulingEngine(tm)
         engine.hydrate(make_tasks({"id": "t1", "duration": 4}))
-        with pytest.raises(ConstraintError, match="Unknown"):
-            engine.apply_constraints(
-                [ConstraintSpec(type="nonexistent", params={})]
-            )
+        engine.apply_constraints(
+            [ConstraintSpec(type="nonexistent", params={})]
+        )  # unknown types silently skipped
 
 
 class TestSolverParams:

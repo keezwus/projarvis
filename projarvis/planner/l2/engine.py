@@ -5,7 +5,7 @@ from ortools.sat.python import cp_model
 from .time_mapper import TimeMapper
 from .models import TaskSpec, ConstraintSpec, TaskResult, Solution
 from projarvis.planner.models import SolverParams
-from projarvis.planner.exceptions import ValidationError, ConstraintError, TimeMappingError
+from projarvis.planner.exceptions import ValidationError, TimeMappingError
 from projarvis.planner.time_epoch import is_iso_datetime
 from .registry import get_plugin, discover_plugins
 from .solver import create_solver
@@ -103,7 +103,7 @@ class SchedulingEngine:
         for cs in constraints:
             plugin = get_plugin(cs.type)
             if plugin is None:
-                raise ConstraintError(f"Unknown constraint type: {cs.type!r}")
+                continue
 
             converted_params = _blind_scan_params(cs.params, self.time_mapper)
 

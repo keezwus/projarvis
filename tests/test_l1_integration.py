@@ -110,3 +110,42 @@ class TestL1EndToEnd:
                 for tid in ws["solution"]["tasks"]:
                     weekly_task_ids.add(tid)
         assert weekly_task_ids.issubset({t.id for t in tasks})
+
+
+class TestL1ConstraintPassThrough:
+    """Constraints flow from L1 schedule() into per-week L2 apply_constraints()."""
+
+    def test_dependency_passthrough(self):
+        from projarvis.planner.l1.models import (
+            LongHorizonSpec,
+            L1TaskSpec,
+            ConstraintSpec,
+        )
+
+        spec = LongHorizonSpec(
+            horizon_start="2026-05-04T00:00:00",
+            horizon_weeks=1,
+            weekly_available={"monday": [["09:00", "17:00"]]},
+        )
+        tasks = [
+            L1TaskSpec(id="A", total_duration=4),
+            L1TaskSpec(id="B", total_duration=4),
+        ]
+        constraints = [
+            ConstraintSpec(type="dependency", params={"pairs": [["A", "B"]]})
+        ]
+
+        engine = L1Engine(spec)
+        engine.partition()
+        assignments, cap_report = engine.allocate(tasks)
+        assert cap_report.status == "OK"
+
+        result = engine.schedule(constraints=constraints)
+        assert result.status == "OK"
+
+        week0 = result.weekly_solutions[0].solution
+        task_a = week0.tasks["A"]
+        task_b = week0.tasks["B"]
+        assert task_a.end_slot <= task_b.start_slot, (
+            f"Dependency violated: A ends at {task_a.end_slot}, B starts at {task_b.start_slot}"
+        )

@@ -141,8 +141,6 @@ class L1Engine:
         if not self._allocated:
             raise RuntimeError("Must call allocate() before schedule()")
 
-        del constraints  # reserved for plugin integration
-
         weekly_solutions: list[WeekSolution] = []
         conflict_reports: list[ConflictReport] = []
         all_ok = True
@@ -177,6 +175,8 @@ class L1Engine:
 
             engine = SchedulingEngine(tm)
             engine.hydrate(l2_tasks)
+            if constraints:
+                engine.apply_constraints(constraints)
             engine.set_objective()
             l2_solution = engine.solve(params)
 
