@@ -1,6 +1,6 @@
 # L1 fixed_time — 固定时间周锁定
 
-有固定时间窗口的任务锁定到其所在周。与 L2 `fixed_time`（第二批）协同：L1 锁定周，L2 锁定精确槽位。
+有固定时间窗口的任务锁定到其所在周。与 L2 `fixed_time` 协同：L1 锁定周，L2 锁定精确槽位。
 
 ## 数据位置
 
@@ -38,4 +38,4 @@ meeting 固定在 5 月 12 日（week 1 的周二）→ L1 强制 meeting 必须
 - fixed_time ISO 超出 epoch 范围 → `TimeMappingError` 被静默捕获，不加约束
 - fixed_time 的周索引超出 `windows` 范围 → 跳过（task 仍受 one-hot 约束分配到某周）
 - 与 `deadline` 插件冲突（fixed_time 在 deadline 之后）→ solver 返回 INFEASIBLE
-- L2 `fixed_time` 插件（第二批）会在该周内加 `start == fixed_start` 和 `end == fixed_end` 硬约束
+- L2 `fixed_time` 插件会在该周内加 `start == fixed_start` 和 `end == fixed_end` 硬约束

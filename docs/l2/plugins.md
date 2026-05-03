@@ -7,7 +7,7 @@ def plugin_fn(
     model: cp_model.CpModel,
     variables: dict,
     params: dict,                          # 时间字段已转为压缩槽位
-    time_mapper: TimeMapper,               # 压缩域 → real slot 查询
+    time_mapper: TimeMapper = None,        # 压缩域 → real slot 查询，engine 始终传入
 ) -> None:
 ```
 
@@ -77,6 +77,8 @@ variables = {
 | `is_afternoon(slot)` | bool | 12:00-18:00 |
 | `is_evening(slot)` | bool | >= 18:00 |
 | `compressed_to_real(slot)` | int | real slot |
+| `resolve_time_ref(iso_string)` | int | ISO → 压缩槽位，不可用时抛 `TimeMappingError` |
+| `resolve_or_nearest(iso_string)` | int | ISO → 压缩槽位，不可用时向前扫描最近可用槽位 |
 
 ## 任务筛选
 
