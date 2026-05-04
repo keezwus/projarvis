@@ -6,6 +6,12 @@
 
 ## 本轮任务
 
+- `app/caldav.py` — iCalendar 生成 + CalDAV 同步
+- `app/server.py` — FastAPI 8 端点
+- `app/cleanup.py` — state 垃圾清理
+- `app/state.py` — 新增 4 个分支操作函数
+- `app/models.py` — 新增端点请求模型（如需要）
+
 ### `app/caldav.py`
 
 **`solution_to_ical(state) -> str`**
@@ -21,14 +27,27 @@
 
 **`sync_to_caldav(state, config) -> None`**
 
-推送日历到 Baikal：
+推送日历到 Baikal。**只替换当天及未来的事件，保留当天之前的历史事件：**
 
 1. 连接 CalDAV 服务器（`caldav.DAVClient`）
 2. 拿到 calendar
-3. 删除所有带 `X-PROJARVIS-TASK-ID` 的旧事件（delete-and-replace 策略）
-4. 创建新事件（`calendar.save_event` 或批量 `save_object`）
+3. 删除所有带 `X-PROJARVIS-TASK-ID` 且 `DTSTART >= today` 的旧事件
+4. 创建新事件（`calendar.save_event`），只推送 `solution.start >= today` 的任务
+5. `solution.start < today` 的历史事件已在日历上，不动
 
-错误处理：连接失则打印 warning 但不抛异常。后续重试。
+错误处理：连接失败则打印 warning 但不抛异常。后续重试。
+
+### `app/cleanup.py`
+
+**`cleanup(state, now: datetime | None = None) -> PlanState`**
+
+定期清理 state 中过期的垃圾数据，返回清理后的副本：
+
+1. **过期的用户 overrides**: `ov["date"] < horizon_start` → 移除（已超出 horizon 范围）
+2. **孤儿 task_solutions**: `task_id` 不在 `state.tasks` 中 → 移除
+3. **无效 constraints**: dependency/deadline 等引用 `task_id` 且该 task 不存在 → 移除（注：这部分不强制，插件遇到不存在的 id 会静默跳过，清理只是保持 state 文件整洁）
+
+调用时机：每次 `run_engine` 结束后调用，或在 `POST /api/v1/commit` 时调用。
 
 ### `app/server.py` — FastAPI
 
