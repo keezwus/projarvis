@@ -10,8 +10,11 @@ from .caldav import sync_to_caldav
 from .cleanup import cleanup
 from .config import AppConfig, load_app_config
 from .merger import apply_delta, prepare_whatif
+from .agent_loop import approve_pending_tools, clear_session, send_user_message
 from .models import (
     AddTasksRequest,
+    AgentApproveRequest,
+    AgentMessageRequest,
     BlockTimeRequest,
     DeleteTasksRequest,
     DeltaRequest,
@@ -204,3 +207,19 @@ def commit():
         warnings.warn(f"CalDAV sync during commit failed: {exc}")
 
     return {"status": "ok", "revision": clean_state.revision}
+
+
+@app.post("/api/v1/agent/message")
+def agent_message(body: AgentMessageRequest):
+    return send_user_message(body.session_id, body.user_text)
+
+
+@app.post("/api/v1/agent/approve")
+def agent_approve(body: AgentApproveRequest):
+    return approve_pending_tools(body.session_id, body.approved)
+
+
+@app.delete("/api/v1/agent/session/{session_id}")
+def agent_clear_session(session_id: str):
+    clear_session(session_id)
+    return {"status": "ok"}

@@ -1,0 +1,6 @@
+your-domain.com {
+    basicauth {
+        # Written by scripts/init.py
+    }
+    reverse_proxy projarvis:8000
+}

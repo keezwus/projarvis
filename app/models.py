@@ -74,6 +74,16 @@ class DeleteTasksRequest(BaseModel):
     task_ids: list[str]
 
 
+class AgentMessageRequest(BaseModel):
+    session_id: str | None = None
+    user_text: str
+
+
+class AgentApproveRequest(BaseModel):
+    session_id: str
+    approved: bool
+
+
 class PlanState(BaseModel):
     horizon_start: str
     horizon_weeks: int = 4

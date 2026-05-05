@@ -18,9 +18,21 @@ services:
       - PROJARVIS_CALDAV_URL=http://baikal:80/dav.php/calendars/user/default/
       - PROJARVIS_CALDAV_USERNAME=user
       - PROJARVIS_CALDAV_PASSWORD=changeme
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     depends_on:
       - baikal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["443:443", "80:80"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on:
+      - projarvis
 
 volumes:
   baikal_config:
   baikal_data:
+  caddy_data:

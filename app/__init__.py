@@ -4,6 +4,8 @@ from .config import AppConfig, load_app_config
 from .models import (
     AddTask,
     AddTasksRequest,
+    AgentApproveRequest,
+    AgentMessageRequest,
     BlockTimeItem,
     BlockTimeRequest,
     ConstraintSpec,
@@ -43,6 +45,8 @@ __all__ = [
     "ModifyTaskRequest",
     "BlockTimeItem",
     "BlockTimeRequest",
+    "AgentApproveRequest",
+    "AgentMessageRequest",
     "DeleteTasksRequest",
     "SetConstraintsRequest",
     "init_git_repo",
