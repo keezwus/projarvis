@@ -8,130 +8,103 @@
 
 ### `app/agent_loop.py`
 
-一个极薄的 tool-use loop：
+无阻塞 I/O 的会话式 tool-use 引擎。暴露 3 个纯函数，不 import app 模块，通过 HTTP（`requests`）与 server 通信。
 
+#### 架构
+
+```
+send_user_message(session_id, user_text) → {session_id, status, tools_to_approve, response_text}
+approve_pending_tools(session_id, approved) → 同上
+clear_session(session_id) → None
+```
+
+返回结构：
 ```python
-while True:
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        tools=TOOLS,
-        messages=conversation_history,
-    )
-    if response.stop_reason == "tool_use":
-        for block in response.content:
-            if block.type == "tool_use":
-                # 写 pending log
-                # 等用户批准（input("批准? [y/N] ")）
-                # 调对应的 App API
-                # 写 ok/err log
-                # 把 tool_result 喂回消息历史
-    elif response.stop_reason == "end_turn":
-        # 展示文本给用户
-        print(response.content[0].text)
-        # 等用户下一条输入
+{
+    "session_id": str,
+    "status": "awaiting_tools" | "completed",
+    "tools_to_approve": [{"id": str, "name": str, "input": dict}] | None,
+    "response_text": str | None,
+}
 ```
 
-**SYSTEM_PROMPT 内容：**
+#### `send_user_message(session_id: str | None, user_text: str) → dict`
 
-```
-你是 projarvis 日程助手。你帮用户管理任务和日程。
+1. 若 session_id 为空 → 新建 session，init messages
+2. 若 session_id 已存在 → 从 SESSION_DB 取出
+3. user_text 追加到 messages，调用 Claude API
+4. 解析响应：
+   - `end_turn` → 返回 status: "completed" + 文本
+   - `tool_use` → 所有 tool_use block 打包，存入 pending_tools，返回 status: "awaiting_tools" + 工具列表
 
-## 架构
+#### `approve_pending_tools(session_id: str, approved: bool) → dict`
 
-用户 → 你（Agent）→ App API（HTTP）→ CP-SAT 引擎 → CalDAV → 手机日历
+1. 取出 pending_tools
+2. approved=True → 逐条执行 HTTP 调用 → 构造 tool_result
+3. approved=False → 构造 tool_result(content="用户未批准此操作")
+4. tool_results 追加到 messages
+5. 立刻再次调用 Claude API 继续生成
+6. 返回结果（同 send_user_message）
 
-## 规则
+#### HITL 批准粒度
 
-1. 每次调工具前，先生成一个 pending 日志行，等用户批准后执行
-2. 工具 2-6（add/modify/delete/block_time/constraints）只暂存变更，不动真计划
-3. what_if() 才跑引擎看影响。用户确认后 commit() 才生效
-4. 用 get_plan() 获取当前上下文（任务列表、已排程时间）
-5. title 始终放 metadata 里。用户说的任务名就是 title
+每次 Claude API response 里的所有 tool_use block 打成一包，整批申请用户批准。用户一次 y/N 决定全部执行或全部拒绝。
 
-## 插件调用参考
+#### 7 个 Tool
 
-deadline
-  参数: {}（空开关）
-  metadata: deadline (ISO 8601)
-  L1: 任务必须在 deadline 周或之前  L2: end <= deadline_slot
-  触发: constraint + task.metadata.deadline
+| Tool | HTTP | 参数 |
+|---|---|---|
+| `get_plan` | `GET /api/v1/plan` | 无 |
+| `add_tasks` | `POST /api/v1/tasks/add` | `tasks: [{title, duration_minutes, priority?, metadata?}]` |
+| `modify_task` | `POST /api/v1/tasks/{task_id}/modify` | `task_id`, `title?`, `duration_minutes?`, `priority?`, `metadata?` |
+| `delete_tasks` | `DELETE /api/v1/tasks` | `task_ids: [string, ...]` |
+| `block_time` | `POST /api/v1/block-time` | `blocks: [{date, start, end}, ...]` |
+| `set_constraints` | `POST /api/v1/constraints` | `constraints: [{type, params}], mode?` |
+| `what_if` | `POST /api/v1/what-if` | 无 |
 
-dependency
-  参数: pairs [[前置id, 后继id]] 必填, buffer_slots int=0
-  metadata: 无
-  L1: 前置周 <= 后继周  L2: 后继.start >= 前置.end + buffer_slots
-  触发: constraint 含非空 pairs
+`commit` 不是 Claude tool。Claude 的职责是生成计划、展示影响（what_if 结果），用户在 App 看到后自己调 `POST /api/v1/commit`。
 
-energy_budget
-  参数: focus_budget_per_day int=0, exercise_budget_per_day int=0,
-        focus_target_per_day int=0, exercise_target_per_day int=0,
-        focus_shortfall_weight int=0, exercise_shortfall_weight int=0
-        [仅L2] focus/exercise_budget_overrides dict={}
-  metadata: focus_multiplier float=0, exercise_multiplier float=0
-  L1: 周级硬上限+软目标（权重1/3）  L2: 天级硬上限+软目标（全权重）
-  触发: constraint + metadata.multiplier
+#### 环境变量
 
-fixed_time
-  参数: {}（空开关）
-  metadata: fixed_time (ISO 8601)
-  L1: 任务锁定到 fixed_time 所在周  L2: start==fixed_start, end==fixed_end
-  触发: constraint + task.metadata.fixed_time
+- `PROJARVIS_API_URL` — server 地址，默认 `http://localhost:8000`
+- `ANTHROPIC_API_KEY` — Claude API key（必须）
 
-schedule_lock
-  参数: {}（空开关）
-  metadata: locked_start (ISO 8601, merger 自动填入，你不要设)
-  L1: 锁任务到 locked_start 所在周  L2: start==locked_slot
-  触发: merger 自动管理
+### `app/agent_system_prompt.md`
 
-schedule_stability
-  参数: default_weight int=2 (L1) / default_weight int=5 (L2)
-  metadata: previous_start (ISO 8601, merger 自动填入)
-  行为: 偏离惩罚。L1 weight=2 刚好>1，抗1周偏移
+SYSTEM_PROMPT 独立文件，包含架构说明、5 条规则、8 个插件参考文档、INFEASIBLE 应对指南。中文。agent_loop.py 启动时读取。
 
-task_distribution (仅L1)
-  参数: mode str="earliest_bias", task_ids list[str] 必填(even模式), weight int=1
-  模式: earliest_bias(默认)/even/front_load/ramp_up/deadline_driven
-  metadata: 无
+### API 批量化改造（`app/models.py` + `app/server.py`）
 
-task_break (仅L2)
-  参数: default_gap int=1, exempt_task_ids list[str]=[]
-  metadata: 无
-```
+新增模型：`BlockTimeItem(date, start, end)`、`DeleteTasksRequest(task_ids: list[str])`
 
-**8 个工具 JSON Schema：**
+`BlockTimeRequest` 改为 `blocks: list[BlockTimeItem]`。
 
-对应轮 3 的 8 个 API 端点。每个工具调用 → 调对应 API。agent_loop 不 import app 模块，通过 HTTP 连接。
-
-```python
-TOOLS = [
-    {"name": "get_plan", ...},           # GET /api/v1/plan
-    {"name": "add_tasks", ...},          # POST /api/v1/tasks/add
-    {"name": "modify_task", ...},        # POST /api/v1/tasks/{id}/modify
-    {"name": "delete_task", ...},        # DELETE /api/v1/tasks/{id}
-    {"name": "block_time", ...},         # POST /api/v1/block-time
-    {"name": "set_constraints", ...},    # POST /api/v1/constraints
-    {"name": "what_if", ...},            # POST /api/v1/what-if
-    {"name": "commit", ...},             # POST /api/v1/commit
-]
-```
+端点变更：
+- `DELETE /api/v1/tasks/{task_id}` → `DELETE /api/v1/tasks`（批量删除）
+- `POST /api/v1/block-time` → 循环处理 blocks 数组，返回 `{status: "ok", blocked: N}`
 
 ### `Dockerfile`
 
 ```dockerfile
 FROM python:3.12-slim
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY pyproject.toml requirements.txt ./
-RUN pip install --no-cache-dir -e .
+
+COPY pyproject.toml ./
+RUN python -c "import tomllib; deps = tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; print('\n'.join(deps))" > /tmp/deps.txt && \
+    pip install --no-cache-dir -r /tmp/deps.txt
+
 COPY app/ ./app/
 COPY projarvis/ ./projarvis/
-RUN mkdir -p /app/config/state
+RUN pip install --no-cache-dir --no-deps . && mkdir -p /app/config/state
+
 ENV TZ=Asia/Shanghai
 EXPOSE 8000
 CMD ["uvicorn", "app.server:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+原计划文档中 `pip install -e .` 在 COPY 源码之前执行会失败，已修正为先装依赖、再 COPY 源码、再 install 包。
 
 ### `docker-compose.yml`
 
@@ -164,57 +137,56 @@ volumes:
   baikal_data:
 ```
 
+### `.dockerignore`
+
+排除 state、cache、测试、文档等构建无关文件。
+
 ### 更新 `pyproject.toml`
 
-追加依赖到 `[project.dependencies]`（各轮次各自加自己的依赖）：
-
+`[project.dependencies]` 追加：
 ```toml
-"fastapi>=0.110",
-"uvicorn>=0.29",
-"icalendar>=5.0",
-"caldav>=1.3",
 "anthropic>=0.30",
+"requests>=2.28",
 ```
 
 ## 依赖
 
 - 轮 3：`app.server`（HTTP API 必须在运行）
-- 需添加到 `pyproject.toml` 的 `[project.dependencies]`：`anthropic`
+- 新增依赖：`anthropic`（Claude API SDK）、`requests`（agent HTTP 调用）
 
 ## 重要细节
 
-- agent_loop 是独立的命令行程序，不嵌入 server。通过 HTTP 与 server 通信
-- 用户批准机制：CLI 中用 `input()`。后续可换成 Telegram bot / WebSocket / iOS Shortcut
-- pending log 格式见 plan：`{timestamp} pending {tool} | {params} | {摘要}`
+- agent_loop 是纯函数模块，无阻塞 I/O。不 import app。通过 HTTP 与 server 通信
+- 会话状态存储在 SESSION_DB 字典，未来可换 SQLite/Redis
+- 用户批准机制：每次 Claude API response 中的所有 tool_use block 整批挂起，由调用方（手机 App / 未来 HTTP 端点）决定批准或拒绝
 - model 用 `claude-sonnet-4-6`。后续可按需切 Opus
 - 环境变量 `ANTHROPIC_API_KEY` 需要设置
 
 ## 不做什么
 
-- 不做 Telegram/WebSocket/iOS Shortcut 集成。CLI 交互先用着
+- 不做 CLI 交互（`if __name__ == "__main__"` 块），agent_loop.py 仅暴露纯函数
+- 不做 agent HTTP 端点（`POST /api/v1/agent/message`, `POST /api/v1/agent/approve`），留到手机对接轮次
+- 不做 Telegram/WebSocket/iOS Shortcut 集成
 - 不写测试文件
 
 ## 验证
 
 ```bash
-# 启动服务
+# 1. Build & start
 docker compose up -d
 
-# 另开终端启动 agent
-export ANTHROPIC_API_KEY=sk-ant-...
-python -m app.agent_loop
+# 2. Batch API smoke
+curl -X POST http://localhost:8000/api/v1/block-time -H 'Content-Type: application/json' \
+  -d '{"blocks": [{"date": "2026-05-06", "start": "14:00", "end": "18:00"}]}'
 
-# 对话
-你: 今天下午休息，帮我看看行不行
-Agent: [pending] block_time | "2026-05-03", "14:00", "18:00" | 移除下午可用块
-批准? [y/N] y
-Agent: [ok] block_time | 完成
-Agent: [pending] what_if | 跑调度
-批准? [y/N] y
-Agent: [ok] what_if | 1个任务移动，容量85%→72%
-      休息的话，写周报移到明天上午9点。还剩12小时。确认吗？
-你: 行
-Agent: [pending] commit | merge + 推日历
-批准? [y/N] y
-Agent: [ok] commit a7d9e0f1 | 2个事件已推CalDAV
+curl -X DELETE http://localhost:8000/api/v1/tasks -H 'Content-Type: application/json' \
+  -d '{"task_ids": ["nonexistent"]}'  # → 404
+
+# 3. Agent 函数验证
+export ANTHROPIC_API_KEY=sk-ant-...
+python -c "
+from app.agent_loop import send_user_message
+res = send_user_message(None, '帮我加一个明天上午写代码的任务')
+print(res)
+"
 ```

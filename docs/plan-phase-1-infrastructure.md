@@ -56,7 +56,7 @@ random_seed = 42
 # TaskInfo（引擎输入）：
 #   id: str                    # UUID
 #   total_duration: int        # 15分钟槽位数
-#   priority: int = 999
+#   priority: int = 100
 #   l2_metadata: dict          # title, deadline, fixed_time, focus_multiplier,
 #                              # exercise_multiplier, locked_start, previous_start
 
@@ -79,7 +79,7 @@ random_seed = 42
 # AddTask:
 #   title: str                 # 会放入 l2_metadata.title
 #   duration_minutes: int
-#   priority: int = 999
+#   priority: int = 100
 #   metadata: dict = {}        # deadline, fixed_time, focus_multiplier, exercise_multiplier
 
 # ModifyTask:
@@ -115,10 +115,12 @@ config/state/ 目录就是一个 git repo
 
 ## 依赖
 
-需添加到 `pyproject.toml` 的 `[project.dependencies]`（各轮次各自加自己的依赖，不用 optional groups）：
+需要 `Python >= 3.11`（stdlib `tomllib`）。需添加到 `pyproject.toml` 的 `[project.dependencies]`（各轮次各自加自己的依赖，不用 optional groups）：
 
 - `pydantic>=2.5`, `pydantic-settings>=2.1` — 配置和数据模型
-- 标准库 `json`, `subprocess`, `datetime`, `uuid`, `tomllib` (Python 3.11+)
+- 标准库 `json`, `subprocess`, `datetime`, `uuid`, `tomllib`
+
+另外需在 `.gitignore` 追加 `config/state/`，防止外层 repo 跟踪内层 state git repo。
 
 ## 不做什么
 

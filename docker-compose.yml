@@ -1,0 +1,26 @@
+version: "3.8"
+services:
+  baikal:
+    image: ckulka/baikal:nginx
+    restart: unless-stopped
+    ports: ["127.0.0.1:8080:80"]
+    volumes:
+      - baikal_config:/var/www/baikal/config
+      - baikal_data:/var/www/baikal/Specific
+
+  projarvis:
+    build: .
+    restart: unless-stopped
+    ports: ["127.0.0.1:8000:8000"]
+    volumes:
+      - ./config:/app/config
+    environment:
+      - PROJARVIS_CALDAV_URL=http://baikal:80/dav.php/calendars/user/default/
+      - PROJARVIS_CALDAV_USERNAME=user
+      - PROJARVIS_CALDAV_PASSWORD=changeme
+    depends_on:
+      - baikal
+
+volumes:
+  baikal_config:
+  baikal_data:

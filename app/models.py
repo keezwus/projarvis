@@ -55,15 +55,23 @@ class ModifyTaskRequest(BaseModel):
     metadata: dict | None = None
 
 
-class BlockTimeRequest(BaseModel):
+class BlockTimeItem(BaseModel):
     date: str
     start: str
     end: str
 
 
+class BlockTimeRequest(BaseModel):
+    blocks: list[BlockTimeItem]
+
+
 class SetConstraintsRequest(BaseModel):
     constraints: list[ConstraintSpec]
     mode: str = "replace"
+
+
+class DeleteTasksRequest(BaseModel):
+    task_ids: list[str]
 
 
 class PlanState(BaseModel):

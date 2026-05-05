@@ -13,6 +13,7 @@ from .merger import apply_delta, prepare_whatif
 from .models import (
     AddTasksRequest,
     BlockTimeRequest,
+    DeleteTasksRequest,
     DeltaRequest,
     ModifyTask,
     ModifyTaskRequest,
@@ -108,18 +109,19 @@ def modify_task(task_id: str, body: ModifyTaskRequest):
     return {"status": "ok"}
 
 
-@app.delete("/api/v1/tasks/{task_id}")
-def delete_task(task_id: str):
+@app.delete("/api/v1/tasks")
+def delete_tasks(body: DeleteTasksRequest):
     config = get_config()
     checkout_whatif(config)
     state = load(config)
 
-    if task_id not in state.tasks:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    for tid in body.task_ids:
+        if tid not in state.tasks:
+            raise HTTPException(status_code=404, detail=f"Task {tid} not found")
 
-    new_state = apply_delta(state, DeltaRequest(delete=[task_id]))
+    new_state = apply_delta(state, DeltaRequest(delete=list(body.task_ids)))
     save(config, new_state)
-    return {"status": "ok"}
+    return {"status": "ok", "deleted": len(body.task_ids)}
 
 
 @app.post("/api/v1/block-time")
@@ -128,14 +130,14 @@ def block_time(body: BlockTimeRequest):
     checkout_whatif(config)
     state = load(config)
 
-    override = {
-        "date": f"{body.date}T00:00:00",
-        "action": "remove",
-        "blocks": [[body.start, body.end]],
-    }
-    state.overrides.append(override)
+    for b in body.blocks:
+        state.overrides.append({
+            "date": f"{b.date}T00:00:00",
+            "action": "remove",
+            "blocks": [[b.start, b.end]],
+        })
     save(config, state)
-    return {"status": "ok"}
+    return {"status": "ok", "blocked": len(body.blocks)}
 
 
 @app.post("/api/v1/constraints")
