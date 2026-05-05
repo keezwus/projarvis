@@ -35,6 +35,7 @@ def init_git_repo(state_dir: str) -> None:
 
     if not (path / ".git").exists():
         _git(str(path), "init")
+        _git(str(path), "config", "init.defaultBranch", "main")
 
     _git(str(path), "config", "user.name", "projarvis")
     _git(str(path), "config", "user.email", "projarvis@local")
@@ -88,6 +89,50 @@ def git_log(config: AppConfig, n: int = 20) -> str:
 def git_diff(config: AppConfig, ref1: str, ref2: str) -> str:
     state_dir = str(Path(config.state_dir))
     result = _git(state_dir, "diff", f"{ref1}..{ref2}", "--", "state.json")
+    return result.stdout.strip()
+
+
+def _ensure_main(config: AppConfig) -> None:
+    state_dir = str(Path(config.state_dir))
+    result = _git(state_dir, "rev-parse", "--verify", "HEAD")
+    if result.returncode != 0:
+        return
+
+    result = _git(state_dir, "rev-parse", "--abbrev-ref", "HEAD")
+    current = result.stdout.strip()
+    if current == "master":
+        _git(state_dir, "branch", "-m", "master", "main")
+
+
+def checkout_whatif(config: AppConfig) -> None:
+    state_dir = str(Path(config.state_dir))
+    result = _git(state_dir, "rev-parse", "--verify", "whatif")
+    if result.returncode == 0:
+        _git(state_dir, "checkout", "whatif")
+    else:
+        _git(state_dir, "checkout", "-B", "whatif", "main")
+
+
+def checkout_main(config: AppConfig) -> None:
+    state_dir = str(Path(config.state_dir))
+    _git(state_dir, "checkout", "main")
+
+
+def merge_whatif(config: AppConfig) -> None:
+    state_dir = str(Path(config.state_dir))
+    _git(state_dir, "checkout", "main")
+    result = _git(state_dir, "merge", "whatif")
+    if result.returncode != 0:
+        _git(state_dir, "merge", "--abort")
+        raise RuntimeError(
+            f"Merge whatif failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    _git(state_dir, "branch", "-D", "whatif")
+
+
+def diff_main_whatif(config: AppConfig) -> str:
+    state_dir = str(Path(config.state_dir))
+    result = _git(state_dir, "diff", "main..whatif", "--", "state.json")
     return result.stdout.strip()
 
 

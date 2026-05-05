@@ -44,6 +44,28 @@ class DeltaRequest(BaseModel):
     delete: list[str] = Field(default_factory=list)
 
 
+class AddTasksRequest(BaseModel):
+    tasks: list[AddTask]
+
+
+class ModifyTaskRequest(BaseModel):
+    title: str | None = None
+    duration_minutes: int | None = None
+    priority: int | None = None
+    metadata: dict | None = None
+
+
+class BlockTimeRequest(BaseModel):
+    date: str
+    start: str
+    end: str
+
+
+class SetConstraintsRequest(BaseModel):
+    constraints: list[ConstraintSpec]
+    mode: str = "replace"
+
+
 class PlanState(BaseModel):
     horizon_start: str
     horizon_weeks: int = 4

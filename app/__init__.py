@@ -1,14 +1,31 @@
+from .caldav import solution_to_ical, sync_to_caldav
+from .cleanup import cleanup
 from .config import AppConfig, load_app_config
 from .models import (
-    PlanState,
-    TaskInfo,
-    TaskSolution,
+    AddTask,
+    AddTasksRequest,
+    BlockTimeRequest,
     ConstraintSpec,
     DeltaRequest,
-    AddTask,
     ModifyTask,
+    ModifyTaskRequest,
+    PlanState,
+    SetConstraintsRequest,
+    TaskInfo,
+    TaskSolution,
 )
-from .state import init_git_repo, load, save, git_log, git_diff
+from .server import app
+from .state import (
+    checkout_main,
+    checkout_whatif,
+    diff_main_whatif,
+    git_diff,
+    git_log,
+    init_git_repo,
+    load,
+    merge_whatif,
+    save,
+)
 
 __all__ = [
     "load_app_config",
@@ -20,9 +37,21 @@ __all__ = [
     "DeltaRequest",
     "AddTask",
     "ModifyTask",
+    "AddTasksRequest",
+    "ModifyTaskRequest",
+    "BlockTimeRequest",
+    "SetConstraintsRequest",
     "init_git_repo",
     "load",
     "save",
     "git_log",
     "git_diff",
+    "checkout_whatif",
+    "checkout_main",
+    "merge_whatif",
+    "diff_main_whatif",
+    "solution_to_ical",
+    "sync_to_caldav",
+    "cleanup",
+    "app",
 ]

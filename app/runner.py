@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
+from .cleanup import cleanup
 from .config import AppConfig
 from .models import PlanState, TaskSolution
 from .state import save
@@ -36,7 +38,15 @@ def _build_constraints_json(tasks: dict, constraints: list) -> list[dict]:
         constraints_json.append({"type": "schedule_stability", "params": {}})
     for cs in constraints:
         constraints_json.append({"type": cs.type, "params": cs.params})
-    return constraints_json
+
+    seen: set[tuple[str, str]] = set()
+    unique: list[dict] = []
+    for c in constraints_json:
+        key = (c["type"], json.dumps(c["params"], sort_keys=True))
+        if key not in seen:
+            seen.add(key)
+            unique.append(c)
+    return unique
 
 
 def _run_single_pass(
@@ -121,5 +131,6 @@ def run_engine(
         task.l2_metadata.pop("previous_start", None)
 
     new_state.last_status = solution.status
-    save(config, new_state)
-    return new_state, None
+    clean_state = cleanup(new_state)
+    save(config, clean_state)
+    return clean_state, None
