@@ -18,7 +18,14 @@ def get_distributor(type_name: str) -> Callable | None:
     return _registry.get(type_name)
 
 
+_discovered = False
+
+
 def discover_distributors() -> None:
+    global _discovered
+    if _discovered:
+        return
+    _discovered = True
     from projarvis.planner.l1 import plugins
     for _, mod_name, _ in pkgutil.iter_modules(plugins.__path__, plugins.__name__ + "."):
         importlib.import_module(mod_name)

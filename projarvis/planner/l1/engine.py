@@ -39,8 +39,6 @@ class L1Engine:
         self._capacity_report: CapacityReport | None = None
         self._allocated = False
 
-    # ── public API ──────────────────────────────────────────────
-
     def partition(self) -> list[HorizonWindow]:
         if self._windows:
             return list(self._windows)
@@ -270,8 +268,6 @@ class L1Engine:
             capacity_report=self._capacity_report,
             conflict_reports=conflict_reports,
         )
-
-    # ── internal ────────────────────────────────────────────────
 
     def _filter_overrides_for_week(self, week_index: int) -> list[dict]:
         week_start = self._epoch.week_start_slot(week_index)

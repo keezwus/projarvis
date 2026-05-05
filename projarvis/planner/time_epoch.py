@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 
 from projarvis.planner.exceptions import TimeMappingError
 
-# ── module-level constants ──────────────────────────────────────
-
 MINUTES_PER_SLOT = 15
 SLOTS_PER_HOUR = 60 // MINUTES_PER_SLOT   # 4
 SLOTS_PER_DAY = 24 * SLOTS_PER_HOUR       # 96
@@ -18,8 +16,6 @@ DAY_NAMES = [
     "saturday",
     "sunday",
 ]
-
-# ── module-level pure functions (no epoch, intra-day only) ─────
 
 def hhmm_to_minutes(hhmm: str) -> int:
     """Convert HH:MM string to minutes since midnight."""
@@ -60,8 +56,6 @@ def is_iso_datetime(s: str) -> bool:
         return False
 
 
-# ── TimeEpoch ───────────────────────────────────────────────────
-
 class TimeEpoch:
     """Real-slot timeline anchored at horizon_start.
 
@@ -77,8 +71,6 @@ class TimeEpoch:
                 f"horizon_start {horizon_start!r} is not aligned to "
                 f"{MINUTES_PER_SLOT}-minute slots"
             )
-
-    # ── core conversions ────────────────────────────────────────
 
     def iso_to_real_slot(self, iso: str) -> int:
         dt = datetime.fromisoformat(iso)
@@ -103,8 +95,6 @@ class TimeEpoch:
     def real_slot_to_iso(self, slot: int) -> str:
         return self.real_slot_to_datetime(slot).isoformat()
 
-    # ── slot arithmetic ─────────────────────────────────────────
-
     def week_index(self, real_slot: int) -> int:
         return real_slot // SLOTS_PER_WEEK
 
@@ -124,8 +114,6 @@ class TimeEpoch:
 
     def minute(self, real_slot: int) -> int:
         return self.real_slot_to_datetime(real_slot).minute
-
-    # ── week boundaries (L1 _partition) ─────────────────────────
 
     def week_start_slot(self, week_index: int) -> int:
         return week_index * SLOTS_PER_WEEK

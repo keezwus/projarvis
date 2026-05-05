@@ -5,8 +5,7 @@ from ortools.sat.python import cp_model
 from .time_mapper import TimeMapper
 from .models import TaskSpec, ConstraintSpec, TaskResult, Solution
 from projarvis.planner.models import SolverParams
-from projarvis.planner.exceptions import ValidationError, TimeMappingError
-from projarvis.planner.time_epoch import is_iso_datetime
+from projarvis.planner.exceptions import ValidationError
 from .registry import get_plugin, discover_plugins
 from .solver import create_solver
 
@@ -31,8 +30,6 @@ class SchedulingEngine:
         self._hydrated = False
         self._constraints_applied = False
         self._objective_set = False
-
-    # ── public API ──────────────────────────────────────────────
 
     def add_objective_term(self, expr) -> None:
         """Plugins call this to append to the objective function pool."""
@@ -105,12 +102,10 @@ class SchedulingEngine:
             if plugin is None:
                 continue
 
-            converted_params = _blind_scan_params(cs.params, self.time_mapper)
-
             plugin(
                 self.model,
                 self.variables,
-                converted_params,
+                cs.params,
                 self.time_mapper,
             )
 
@@ -140,8 +135,6 @@ class SchedulingEngine:
         solver = create_solver(params)
         status = solver.Solve(self.model)
         return self._extract(solver, status)
-
-    # ── internal ────────────────────────────────────────────────
 
     def _extract(self, solver: cp_model.CpSolver, status: int) -> Solution:
         status_map = {
@@ -190,22 +183,3 @@ class SchedulingEngine:
             tasks=task_results,
         )
 
-
-# ── module-level helpers ────────────────────────────────────────
-
-def _blind_scan_params(params: dict, time_mapper: TimeMapper) -> dict:
-    """Deep-scan *params* for ISO 8601 strings and convert to compressed slots."""
-    return _blind_scan_value(params, time_mapper)
-
-
-def _blind_scan_value(value, time_mapper: TimeMapper):
-    if is_iso_datetime(value):
-        try:
-            return time_mapper.resolve_time_ref(value)
-        except TimeMappingError:
-            pass
-    if isinstance(value, dict):
-        return {k: _blind_scan_value(v, time_mapper) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_blind_scan_value(v, time_mapper) for v in value]
-    return value

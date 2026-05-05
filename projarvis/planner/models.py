@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+META_LOCKED_START = "locked_start"
+META_PREVIOUS_START = "previous_start"
+
 
 @dataclass
 class SolverParams:

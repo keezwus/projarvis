@@ -1,11 +1,12 @@
 from ..registry import register_constraint
 from projarvis.planner.exceptions import TimeMappingError
+from projarvis.planner.models import META_LOCKED_START
 
 
 @register_constraint("schedule_lock")
 def schedule_lock(model, variables, params, time_mapper=None):
     for tid, tv in variables["tasks"].items():
-        ls = tv["spec"].metadata.get("locked_start")
+        ls = tv["spec"].metadata.get(META_LOCKED_START)
         if ls is None:
             continue
         try:

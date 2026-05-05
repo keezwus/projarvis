@@ -5,7 +5,7 @@ from ..registry import register_constraint
 def energy_budget(model, variables, params, time_mapper=None):
     tasks = variables["tasks"]
 
-    # ── 1. Build day_ranges: {day_name: [lo, hi)} ──────────────────
+    # Build day_ranges: {day_name: [lo, hi)}
     day_ranges = {}
     for comp in range(time_mapper.total_slots):
         day = time_mapper.day_name(comp)
@@ -18,7 +18,7 @@ def energy_budget(model, variables, params, time_mapper=None):
 
     days = list(day_ranges.keys())
 
-    # ── 2. Read params ─────────────────────────────────────────────
+    # Read params
     fb_default = params.get("focus_budget_per_day", 0)
     fb_overrides = params.get("focus_budget_overrides", {})
     eb_default = params.get("exercise_budget_per_day", 0)
@@ -30,7 +30,7 @@ def energy_budget(model, variables, params, time_mapper=None):
     fw = params.get("focus_shortfall_weight", 0)
     ew = params.get("exercise_shortfall_weight", 0)
 
-    # ── 3. Pre-compute consum values per task ──────────────────────
+    # Pre-compute consum values per task
     focus_consum = {}  # {tid: int}
     exercise_consum = {}
     for tid, tv in tasks.items():
@@ -41,7 +41,7 @@ def energy_budget(model, variables, params, time_mapper=None):
         if em:
             exercise_consum[tid] = int(tv["duration"] * em)
 
-    # ── 4. Create is_on_day and contrib variables ──────────────────
+    # Create is_on_day and contrib variables
     is_on = {}
     f_contrib = {}
     e_contrib = {}
@@ -80,7 +80,7 @@ def energy_budget(model, variables, params, time_mapper=None):
 
         model.Add(sum(ion_vars) == 1)
 
-    # ── 5. Hard constraints: daily budget caps ─────────────────────
+    # Hard constraints: daily budget caps
     for day in days:
         fb = fb_overrides.get(day, fb_default)
         if fb > 0:
@@ -94,7 +94,7 @@ def energy_budget(model, variables, params, time_mapper=None):
             if terms:
                 model.Add(sum(terms) <= eb)
 
-    # ── 6. Soft constraints: daily shortfall ───────────────────────
+    # Soft constraints: daily shortfall
     shortfall_terms = []
 
     for day in days:
@@ -116,6 +116,6 @@ def energy_budget(model, variables, params, time_mapper=None):
             model.Add(ssf >= et - actual)
             shortfall_terms.append(ssf * ew)
 
-    # ── 7. Write objective terms ───────────────────────────────────
+    # Write objective terms
     if shortfall_terms:
         variables["plugins"]["energy_budget"] = shortfall_terms

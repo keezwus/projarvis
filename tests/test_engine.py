@@ -223,26 +223,3 @@ class TestObjective:
         starts = [t.start_slot for t in sol.tasks.values()]
         assert min(starts) == 36  # Someone at Mon 09:00
 
-
-class TestBlindScan:
-    def test_non_iso_string_passthrough(self):
-        from projarvis.planner.l2.engine import _blind_scan_params
-        tm = make_time_mapper()
-        params = {"task": "standup", "min_gap": 2}
-        result = _blind_scan_params(params, tm)
-        assert result == params
-
-    def test_iso_datetime_converted(self):
-        from projarvis.planner.l2.engine import _blind_scan_params
-        tm = make_time_mapper(horizon_days=1)
-        params = {"window_start": "2026-05-04T09:00:00"}
-        result = _blind_scan_params(params, tm)
-        assert result["window_start"] == 0  # compressed slot
-
-    def test_nested_iso_converted(self):
-        from projarvis.planner.l2.engine import _blind_scan_params
-        tm = make_time_mapper(horizon_days=1)
-        params = {"windows": [{"start": "2026-05-04T09:00:00"}, {"start": "2026-05-04T14:00:00"}]}
-        result = _blind_scan_params(params, tm)
-        assert result["windows"][0]["start"] == 0
-        assert result["windows"][1]["start"] == 12

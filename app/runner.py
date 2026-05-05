@@ -8,6 +8,8 @@ from .config import AppConfig
 from .models import PlanState, TaskSolution
 from .state import save
 
+from projarvis.planner.models import META_LOCKED_START, META_PREVIOUS_START
+
 from projarvis.planner.l1.engine import L1Engine
 from projarvis.planner.l1.serialization import parse_long_horizon
 from projarvis.planner.time_epoch import TimeEpoch, MINUTES_PER_SLOT
@@ -29,8 +31,8 @@ def _build_tasks_json(tasks: dict) -> list[dict]:
 
 
 def _build_constraints_json(tasks: dict, constraints: list) -> list[dict]:
-    has_locked = any("locked_start" in t.l2_metadata for t in tasks.values())
-    has_previous = any("previous_start" in t.l2_metadata for t in tasks.values())
+    has_locked = any(META_LOCKED_START in t.l2_metadata for t in tasks.values())
+    has_previous = any(META_PREVIOUS_START in t.l2_metadata for t in tasks.values())
     constraints_json: list[dict] = []
     if has_locked:
         constraints_json.append({"type": "schedule_lock", "params": {}})
@@ -87,14 +89,14 @@ def run_engine(
     solution = _run_single_pass(data)
 
     first_pass_had_locks = any(
-        "locked_start" in t.l2_metadata for t in new_state.tasks.values()
+        META_LOCKED_START in t.l2_metadata for t in new_state.tasks.values()
     )
 
     if solution.status == "INFEASIBLE" and first_pass_had_locks:
         for task in new_state.tasks.values():
-            ls = task.l2_metadata.pop("locked_start", None)
+            ls = task.l2_metadata.pop(META_LOCKED_START, None)
             if ls is not None:
-                task.l2_metadata["previous_start"] = ls
+                task.l2_metadata[META_PREVIOUS_START] = ls
 
         data["tasks"] = _build_tasks_json(new_state.tasks)
         data["constraints"] = _build_constraints_json(
@@ -127,8 +129,8 @@ def run_engine(
             )
 
     for task in new_state.tasks.values():
-        task.l2_metadata.pop("locked_start", None)
-        task.l2_metadata.pop("previous_start", None)
+        task.l2_metadata.pop(META_LOCKED_START, None)
+        task.l2_metadata.pop(META_PREVIOUS_START, None)
 
     new_state.last_status = solution.status
     clean_state = cleanup(new_state)

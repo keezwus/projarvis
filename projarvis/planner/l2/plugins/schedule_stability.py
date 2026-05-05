@@ -1,5 +1,6 @@
 from ..registry import register_constraint
 from projarvis.planner.exceptions import TimeMappingError
+from projarvis.planner.models import META_PREVIOUS_START
 
 
 @register_constraint("schedule_stability")
@@ -12,7 +13,7 @@ def schedule_stability(model, variables, params, time_mapper=None):
     terms = []
 
     for tid, tv in variables["tasks"].items():
-        ps = tv["spec"].metadata.get("previous_start")
+        ps = tv["spec"].metadata.get(META_PREVIOUS_START)
         if ps is None:
             continue
         try:

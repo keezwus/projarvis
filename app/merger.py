@@ -5,6 +5,8 @@ from math import ceil
 from uuid import uuid4
 
 from .models import PlanState, DeltaRequest, TaskInfo
+from .state import this_monday
+from projarvis.planner.models import META_LOCKED_START, META_PREVIOUS_START
 
 
 def apply_delta(state: PlanState, delta: DeltaRequest) -> PlanState:
@@ -26,8 +28,8 @@ def apply_delta(state: PlanState, delta: DeltaRequest) -> PlanState:
             task.priority = mod.priority
         if mod.metadata is not None:
             task.l2_metadata.update(mod.metadata)
-        task.l2_metadata.pop("locked_start", None)
-        task.l2_metadata.pop("previous_start", None)
+        task.l2_metadata.pop(META_LOCKED_START, None)
+        task.l2_metadata.pop(META_PREVIOUS_START, None)
         new_state.task_solutions.pop(mod.id, None)
 
     for add in delta.add:
@@ -47,17 +49,12 @@ def apply_delta(state: PlanState, delta: DeltaRequest) -> PlanState:
 
 def prepare_whatif(state: PlanState) -> tuple[PlanState, list[dict]]:
     new_state = state.model_copy(deep=True)
-    now = datetime.now()
-
-    days_since_monday = now.weekday()
-    this_monday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
-        days=days_since_monday
-    )
+    monday = this_monday()
 
     horizon_start_dt = datetime.fromisoformat(new_state.horizon_start)
-    if horizon_start_dt < this_monday:
-        new_state.horizon_start = this_monday.isoformat()
-        horizon_start_dt = this_monday
+    if horizon_start_dt < monday:
+        new_state.horizon_start = monday.isoformat()
+        horizon_start_dt = monday
 
     completed_ids = []
     for tid, sol in new_state.task_solutions.items():
@@ -87,8 +84,8 @@ def prepare_whatif(state: PlanState) -> tuple[PlanState, list[dict]]:
         start_dt = datetime.fromisoformat(sol.start)
         week_num = (start_dt - horizon_start_dt).days // 7
         if week_num == 0:
-            new_state.tasks[tid].l2_metadata["locked_start"] = sol.start
+            new_state.tasks[tid].l2_metadata[META_LOCKED_START] = sol.start
         else:
-            new_state.tasks[tid].l2_metadata["previous_start"] = sol.start
+            new_state.tasks[tid].l2_metadata[META_PREVIOUS_START] = sol.start
 
     return new_state, auto_overrides

@@ -10,13 +10,16 @@ from .config import AppConfig
 from .models import PlanState
 
 
-def _this_monday_iso() -> str:
+def this_monday() -> datetime:
     now = datetime.now()
     days_since_monday = now.weekday()
-    monday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+    return now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
         days=days_since_monday
     )
-    return monday.isoformat()
+
+
+def _this_monday_iso() -> str:
+    return this_monday().isoformat()
 
 
 def _git(cwd: str, *args: str) -> subprocess.CompletedProcess:
@@ -90,18 +93,6 @@ def git_diff(config: AppConfig, ref1: str, ref2: str) -> str:
     state_dir = str(Path(config.state_dir))
     result = _git(state_dir, "diff", f"{ref1}..{ref2}", "--", "state.json")
     return result.stdout.strip()
-
-
-def _ensure_main(config: AppConfig) -> None:
-    state_dir = str(Path(config.state_dir))
-    result = _git(state_dir, "rev-parse", "--verify", "HEAD")
-    if result.returncode != 0:
-        return
-
-    result = _git(state_dir, "rev-parse", "--abbrev-ref", "HEAD")
-    current = result.stdout.strip()
-    if current == "master":
-        _git(state_dir, "branch", "-m", "master", "main")
 
 
 def checkout_whatif(config: AppConfig) -> None:

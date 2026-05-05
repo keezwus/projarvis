@@ -5,6 +5,8 @@ import os
 import uuid
 from pathlib import Path
 
+import time
+
 import anthropic
 import requests
 
@@ -14,6 +16,25 @@ _SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "agent_system_prompt.md"
 SYSTEM_PROMPT = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 SESSION_DB: dict[str, dict] = {}
+SESSION_TTL_SECONDS = 3600  # evict sessions idle for >1 hour
+_CLIENT: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = anthropic.Anthropic()
+    return _CLIENT
+
+
+def _evict_expired_sessions() -> None:
+    now = time.time()
+    expired = [
+        sid for sid, s in SESSION_DB.items()
+        if now - s.get("_last_access", 0) > SESSION_TTL_SECONDS
+    ]
+    for sid in expired:
+        SESSION_DB.pop(sid, None)
 
 TOOLS = [
     {
@@ -216,7 +237,7 @@ def _claude_round(client: anthropic.Anthropic, session: dict) -> dict:
 
 
 def send_user_message(session_id: str | None, user_text: str) -> dict:
-    client = anthropic.Anthropic()
+    _evict_expired_sessions()
 
     if session_id and session_id in SESSION_DB:
         session = SESSION_DB[session_id]
@@ -230,8 +251,9 @@ def send_user_message(session_id: str | None, user_text: str) -> dict:
         }
         SESSION_DB[sid] = session
 
+    session["_last_access"] = time.time()
     session["messages"].append({"role": "user", "content": user_text})
-    result = _claude_round(client, session)
+    result = _claude_round(_get_client(), session)
     return {
         "session_id": session["session_id"],
         **result,
@@ -276,10 +298,9 @@ def approve_pending_tools(session_id: str, approved: bool) -> dict:
         })
 
     session["status"] = "idle"
+    session["_last_access"] = time.time()
 
-    # Continue Claude loop
-    client = anthropic.Anthropic()
-    result = _claude_round(client, session)
+    result = _claude_round(_get_client(), session)
     return {
         "session_id": session_id,
         **result,
